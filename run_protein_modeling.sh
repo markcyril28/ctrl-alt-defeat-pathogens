@@ -36,10 +36,15 @@ set -euo pipefail
 # session | clean | check | fetch | plddt | validate | identity | trim | zn-transfer | all
 STEP=""
 
+# ── Which dataset ──────────────────────────────────────────────────
+# Point to one of the run_protein_modeling_D*.toml files to run only that species.
+# Leave empty to run all four species (original behaviour).
+CONFIG=""               # e.g. "run_protein_modeling_D1_Mycobacterium_tuberculosis.toml"
+
 # ── Environment and paths ───────────────────────────────────────────
-ENV_WANTED="${OLOGIST_ENV:-}"   # conda env name; OLOGIST_ENV wins, empty = autodetect
+ENV_WANTED="${OLOGIST_ENV:-protein_modeling}"   # conda env name; OLOGIST_ENV wins
 DATASETS=""             # dataset folder; empty = <script dir>/Datasets
-OUT_DIR=""              # receptors/sessions output folder; empty = <script dir>/work
+OUT_DIR=""              # receptors/sessions output folder; empty = <script dir>/RESULTS/1_Protein_Modeling
 
 # ── Behavior toggles ────────────────────────────────────────────────
 DRY_RUN=false           # true = print what would run, touch nothing
@@ -48,7 +53,16 @@ DRY_RUN=false           # true = print what would run, touch nothing
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ -z "$DATASETS" ]] && DATASETS="$ROOT/Datasets"
 [[ -d "$DATASETS" ]] && DATASETS="$(cd "$DATASETS" && pwd)"
-[[ -z "$OUT_DIR"  ]] && OUT_DIR="$ROOT/work"
+[[ -z "$OUT_DIR"  ]] && OUT_DIR="$ROOT/RESULTS/1_Protein_Modeling"
+
+# ── Dataset config ──────────────────────────────────────────────────
+OW_CONFIG_JSON=""
+if [[ -n "$CONFIG" ]]; then
+    _cfg_path="$CONFIG"
+    [[ "$_cfg_path" = /* ]] || _cfg_path="$ROOT/$_cfg_path"
+    [[ -f "$_cfg_path" ]] || { printf '\033[0;31m[FAIL]\033[0m config not found: %s\n' "$_cfg_path" >&2; exit 1; }
+fi
+export OW_CONFIG_JSON   # set to a temp JSON path in preflight, after TMP is ready
 
 # ── Output helpers (same vocabulary as setup_conda_envs.sh) ─────────
 GREEN='\033[0;32m'  YELLOW='\033[0;33m'  RED='\033[0;31m'  BLUE='\033[0;34m'  NC='\033[0m'
@@ -92,7 +106,7 @@ resolve_env() {
     fi
     local candidates=() name prefix
     [[ -n "$ENV_WANTED" ]] && candidates+=("$ENV_WANTED")
-    candidates+=(protein_model protein_modeling dock-workshop)
+    candidates+=(protein_modeling)
     for name in "${candidates[@]}"; do
         prefix="$(conda info --envs 2>/dev/null | awk -v n="$name" '$1==n {print $NF}')" || true
         [[ -z "$prefix" ]] && continue
@@ -126,10 +140,35 @@ run_python() {
 }
 
 preflight() {
-    local species_dirs=("$DATASETS"/[1-9]_*/)
-    [[ ${#species_dirs[@]} -gt 0 ]] || { fail "no species directories in $DATASETS"; exit 1; }
     resolve_env
     TMP="$(mktemp -d)"
+
+    # Parse the TOML config (if any) into a JSON temp file that the Python heredocs read.
+    if [[ -n "$CONFIG" ]]; then
+        OW_CONFIG_JSON="$TMP/config.json"
+        python -c "
+import sys, json
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+with open(sys.argv[1], 'rb') as f:
+    cfg = tomllib.load(f)
+with open(sys.argv[2], 'w') as f:
+    json.dump(cfg, f)
+" "$_cfg_path" "$OW_CONFIG_JSON" || { fail "could not parse $CONFIG"; exit 1; }
+        export OW_CONFIG_JSON
+        local species_name species_dir
+        species_name="$(python -c "import json,sys;c=json.load(open(sys.argv[1]));print(c['species']['name'])" "$OW_CONFIG_JSON")"
+        species_dir="$(python -c "import json,sys;c=json.load(open(sys.argv[1]));print(c['species']['dir'])" "$OW_CONFIG_JSON")"
+        info "config: $CONFIG — $species_name ($species_dir)"
+        [[ -d "$DATASETS/$species_dir" ]] || { fail "species directory not found: $DATASETS/$species_dir"; exit 1; }
+    else
+        local species_dirs=()
+        shopt -s nullglob; species_dirs=("$DATASETS"/[1-9]_*/); shopt -u nullglob
+        [[ ${#species_dirs[@]} -gt 0 ]] || { fail "no species directories in $DATASETS"; exit 1; }
+    fi
+
     $DRY_RUN || mkdir -p "$RECEPTORS"
     export OW_DATASETS="$DATASETS" OW_RECEPTORS="$RECEPTORS"
 }
@@ -138,11 +177,22 @@ preflight() {
 do_session() {
     step "Step 4 — load the whole dataset into one session"
     run_pymol session <<'PY'
-import os
+import os, glob, json
 from pymol import cmd
+
 out = os.path.join(os.environ["OW_RECEPTORS"], "toxin_dataset.pse")
+_cfg_json = os.environ.get("OW_CONFIG_JSON", "")
+if _cfg_json:
+    _cfg = json.load(open(_cfg_json))
+    _species_dir = _cfg["species"]["dir"]
+    for pdb in sorted(glob.glob(os.path.join(_species_dir, "*.pdb"))):
+        name = os.path.splitext(os.path.basename(pdb))[0]
+        cmd.load(pdb, name)
+else:
+    cmd.do("run toxin_load.py")
+    cmd.do("load_all_pdbs()")
+
 cmd.do("run toxin_load.py")
-cmd.do("load_all_pdbs()")
 cmd.do("color_by_chain_all()")
 loaded = cmd.get_object_list()
 cmd.save(out)
@@ -158,12 +208,12 @@ PY
 do_clean() {
     step "Step 6 — export docking-ready receptors"
     run_pymol clean <<'PY'
-import os
+import os, json
 from pymol import cmd
 
 OUT = os.environ["OW_RECEPTORS"]
 
-RECIPES = [
+_ALL_RECIPES = [
     # name,                pdb path (relative to Datasets/),                                    keep selection,                              drop resn,        Zn, outfile
     ("TNT",                "1_Mycobacterium_tuberculosis/PDB_4QLP_TNT_immunity.pdb",             "chain B and polymer",                       "",                0, "TNT_receptor_clean.pdb"),
     ("BoNT/A holotoxin",   "2_Clostridium_botulinum/PDB_3BTA_BoNT_A_holotoxin.pdb",              "(chain A and polymer) or resn ZN",          "",                1, "BONT_A_holo_clean.pdb"),
@@ -172,8 +222,19 @@ RECIPES = [
     ("BoNT/B receptor-bd", "2_Clostridium_botulinum/PDB_1I1E_BoNT_B_doxorubicin.pdb",            "polymer",                                   "DM2+SO4",         0, "BONT_B_HC_clean.pdb"),
     ("FimH lectin",        "3_Klebsiella_pneumoniae/PDB_9AT9_FimH_lectin_mannose.pdb",           "polymer",                                   "MAN",             0, "FimH_receptor_clean.pdb"),
     ("ExoA",               "4_Pseudomonas_aeruginosa/PDB_1AER_ExoA.pdb",                        "chain A and polymer",                       "TAD+TIA+AMP",     0, "ExoA_receptor_clean.pdb"),
-    ("ExoT–SpcS interface","4_Pseudomonas_aeruginosa/PDB_6JNP_ExoT_SpcS_complex.pdb",           "(chain A or chain B) and polymer",          "GOL",             0, "ExoT_SpcS_clean.pdb"),
+    ("ExoT-SpcS interface","4_Pseudomonas_aeruginosa/PDB_6JNP_ExoT_SpcS_complex.pdb",           "(chain A or chain B) and polymer",          "GOL",             0, "ExoT_SpcS_clean.pdb"),
 ]
+
+_cfg_json = os.environ.get("OW_CONFIG_JSON", "")
+if _cfg_json:
+    _cfg = json.load(open(_cfg_json))
+    _sd = _cfg["species"]["dir"]
+    RECIPES = [
+        (r["name"], "{}/{}".format(_sd, r["pdb"]), r["keep"], r["drop"], r["zn"], r["outfile"])
+        for r in _cfg.get("clean", [])
+    ]
+else:
+    RECIPES = _ALL_RECIPES
 
 for name, pdb, keep, drop, want_zn, outfile in RECIPES:
     path = pdb
@@ -206,19 +267,32 @@ PY
 }
 
 # ── Step 8a/8b — AlphaFold models ───────────────────────────────────
+_fetch_accessions() {
+    [[ -z "$OW_CONFIG_JSON" ]] && return
+    python -c "import json,sys;c=json.load(open(sys.argv[1]));print(' '.join(t['accession'] for t in c.get('fetch_target',[])))" "$OW_CONFIG_JSON"
+}
+
 do_check() {
     step "Step 8a — which targets need a model"
     if $DRY_RUN; then printf '  [dry-run] python fetch_models.py --check\n'; return; fi
-    ( cd "$DATASETS" && python fetch_models.py --check )
+    local acc; acc="$(_fetch_accessions)"
+    ( cd "$DATASETS" && python fetch_models.py --check $acc )
 }
 
 do_fetch() {
     step "Step 8b — download the available AlphaFold models"
     if $DRY_RUN; then printf '  [dry-run] python fetch_models.py\n'; return; fi
-    ( cd "$DATASETS" && python fetch_models.py )
-    local model_count; model_count="$(find "$DATASETS" -name 'MODEL_*.pdb' | wc -l)"
-    info "models across species dirs ($model_count files)"
-    warn "BoNT/C1, /D and /G have no AlphaFold entry — build them by homology (Step 8e)."
+    local acc; acc="$(_fetch_accessions)"
+    ( cd "$DATASETS" && python fetch_models.py $acc )
+    local search_dir="$DATASETS"
+    [[ -n "$OW_CONFIG_JSON" ]] && {
+        local sd; sd="$(python -c "import json,sys;print(json.load(open(sys.argv[1]))['species']['dir'])" "$OW_CONFIG_JSON")"
+        search_dir="$DATASETS/$sd"
+    }
+    local model_count; model_count="$(find "$search_dir" -name 'MODEL_*.pdb' | wc -l)"
+    info "models in $search_dir ($model_count files)"
+    [[ -z "$OW_CONFIG_JSON" ]] && \
+        warn "BoNT/C1, /D and /G have no AlphaFold entry — build them by homology (Step 8e)."
 }
 
 # ── Step 8c — confidence ────────────────────────────────────────────
@@ -227,11 +301,11 @@ do_fetch() {
 do_plddt() {
     step "Step 8c — mean pLDDT, whole chain and per region"
     run_python plddt <<'PY'
-import os, statistics
+import os, statistics, json
 
 DATASETS = os.environ["OW_DATASETS"]
 
-REGIONS = [
+_ALL_REGIONS = [
     # path (relative to Datasets/),                                          label,                     first, last
     ("1_Mycobacterium_tuberculosis/MODEL_O05442_CpnT_full_AF.pdb",         "whole chain",              None, None),
     ("1_Mycobacterium_tuberculosis/MODEL_O05442_CpnT_full_AF.pdb",         "TNT domain 651-846",        651,  846),
@@ -251,6 +325,17 @@ REGIONS = [
     ("4_Pseudomonas_aeruginosa/MODEL_O34208_ExoU_AF.pdb",                  "whole chain",              None, None),
     ("4_Pseudomonas_aeruginosa/MODEL_O34208_ExoU_AF.pdb",                  "PLA2 region 107-357",       107,  357),
 ]
+
+_cfg_json = os.environ.get("OW_CONFIG_JSON", "")
+if _cfg_json:
+    _cfg = json.load(open(_cfg_json))
+    _sd = _cfg["species"]["dir"]
+    REGIONS = [
+        ("{}/{}".format(_sd, r["model"]), r["label"], r.get("first"), r.get("last"))
+        for r in _cfg.get("plddt", [])
+    ]
+else:
+    REGIONS = _ALL_REGIONS
 
 def per_residue_plddt(path):
     scores = {}
@@ -280,7 +365,7 @@ for relpath, label, first, last in REGIONS:
     if first is not None:
         scores = {r: b for r, b in scores.items() if first <= r <= last}
     if not scores:
-        print("{:30s} {:26s} {:>6s}".format(filename, label, "n/a"))
+        print("{:55s} {:26s} {:>6s}".format(os.path.basename(relpath), label, "n/a"))
         continue
     mean = statistics.mean(scores.values())
     print("{:55s} {:26s} {:6.1f} {:6d}  {}".format(
@@ -297,14 +382,26 @@ PY
 do_validate() {
     step "Step 8d — superpose each model on its crystal structure"
     run_pymol validate <<'PY'
-import os
+import os, json
 from pymol import cmd
 
-PAIRS = [
+_ALL_PAIRS = [
     # label,        model path,                                                      model selection,  crystal path,                                                crystal selection
     ("TNT domain",  "1_Mycobacterium_tuberculosis/MODEL_O05442_CpnT_full_AF.pdb",   "resi 651-846",   "1_Mycobacterium_tuberculosis/PDB_4QLP_TNT_immunity.pdb",     "chain B and polymer"),
     ("FimH lectin", "3_Klebsiella_pneumoniae/MODEL_A0A0H3H2I8_FimH_full_AF.pdb",    "polymer",        "3_Klebsiella_pneumoniae/PDB_9AT9_FimH_lectin_mannose.pdb",  "polymer"),
 ]
+
+_cfg_json = os.environ.get("OW_CONFIG_JSON", "")
+if _cfg_json:
+    _cfg = json.load(open(_cfg_json))
+    _sd = _cfg["species"]["dir"]
+    PAIRS = [
+        (v["label"], "{}/{}".format(_sd, v["model"]), v["model_sel"],
+         "{}/{}".format(_sd, v["crystal"]), v["crystal_sel"])
+        for v in _cfg.get("validate", [])
+    ]
+else:
+    PAIRS = _ALL_PAIRS
 
 print("{:14s} {:>12s} {:>7s} {:>12s} {:>7s}".format(
     "comparison", "super RMSD", "atoms", "align RMSD", "atoms"))
@@ -337,6 +434,7 @@ PY
 do_identity() {
     step "Step 8e — identity of BoNT/C1 to its candidate templates"
     run_python identity <<'PY'
+import json, os
 from pathlib import Path
 
 try:
@@ -349,16 +447,29 @@ def sequence(path):
     return "".join(line.strip() for line in Path(path).read_text().splitlines()
                    if not line.startswith(">"))
 
+_cfg_json = os.environ.get("OW_CONFIG_JSON", "")
+if _cfg_json:
+    _cfg = json.load(open(_cfg_json))
+    _sd = _cfg["species"]["dir"]
+    _q = _cfg.get("identity_query", [])
+    _t = _cfg.get("identity_template", [])
+    if not _q or not _t:
+        print("no identity comparisons defined for this dataset — skipping")
+        raise SystemExit(0)
+    queries   = [(q["name"], "{}/{}".format(_sd, q["fasta"])) for q in _q]
+    templates = [(t["name"], "{}/{}".format(_sd, t["fasta"])) for t in _t]
+else:
+    queries = [
+        ("BoNT/C1", "2_Clostridium_botulinum/FASTA_P18640_BoNT_C1.fasta"),
+        ("BoNT/D",  "2_Clostridium_botulinum/FASTA_P19321_BoNT_D.fasta"),
+        ("BoNT/G",  "2_Clostridium_botulinum/FASTA_Q60393_BoNT_G.fasta"),
+    ]
+    templates = [
+        ("BoNT/B (1EPW)", "2_Clostridium_botulinum/FASTA_P10844_BoNT_B.fasta"),
+        ("BoNT/A1 (3BTA)", "2_Clostridium_botulinum/FASTA_P0DPI1_BoNT_A1.fasta"),
+    ]
+
 aligner = Align.PairwiseAligner(scoring="blastp", mode="global")
-queries = [
-    ("BoNT/C1", "2_Clostridium_botulinum/FASTA_P18640_BoNT_C1.fasta"),
-    ("BoNT/D",  "2_Clostridium_botulinum/FASTA_P19321_BoNT_D.fasta"),
-    ("BoNT/G",  "2_Clostridium_botulinum/FASTA_Q60393_BoNT_G.fasta"),
-]
-templates = [
-    ("BoNT/B (1EPW)", "2_Clostridium_botulinum/FASTA_P10844_BoNT_B.fasta"),
-    ("BoNT/A1 (3BTA)", "2_Clostridium_botulinum/FASTA_P0DPI1_BoNT_A1.fasta"),
-]
 
 for qname, qpath in queries:
     if not Path(qpath).exists():
@@ -388,19 +499,27 @@ PY
 do_trim() {
     step "Step 8f — trim low-confidence regions off the models"
     run_pymol trim <<'PY'
-import os
+import os, json
 from pymol import cmd
 
-# (source path, keep selection, label, output dir, outfile)
-# Residues below pLDDT 50 are dropped everywhere: they are not structure,
-# and they add false surface that can swallow a ligand.
-TRIMS = [
+_ALL_TRIMS = [
     ("1_Mycobacterium_tuberculosis/MODEL_O05442_CpnT_full_AF.pdb",   "resi 651-846", "CpnT TNT domain",  "1_Mycobacterium_tuberculosis", "MODEL_CpnT_TNT_domain_trimmed.pdb"),
     ("3_Klebsiella_pneumoniae/MODEL_P21648_MrkD_AF.pdb",             "not resi 1-7", "MrkD",             "3_Klebsiella_pneumoniae",      "MODEL_MrkD_trimmed.pdb"),
     ("4_Pseudomonas_aeruginosa/MODEL_G3XDA1_ExoS_AF.pdb",           "not resi 1-96","ExoS GAP+ADPRT",   "4_Pseudomonas_aeruginosa",     "MODEL_ExoS_trimmed.pdb"),
     ("4_Pseudomonas_aeruginosa/MODEL_Q9I788_ExoT_AF.pdb",           "resi 236-457", "ExoT ADPRT",       "4_Pseudomonas_aeruginosa",     "MODEL_ExoT_ADPRT_trimmed.pdb"),
     ("4_Pseudomonas_aeruginosa/MODEL_O34208_ExoU_AF.pdb",           "resi 107-357", "ExoU PLA2 region", "4_Pseudomonas_aeruginosa",     "MODEL_ExoU_PLA2_trimmed.pdb"),
 ]
+
+_cfg_json = os.environ.get("OW_CONFIG_JSON", "")
+if _cfg_json:
+    _cfg = json.load(open(_cfg_json))
+    _sd = _cfg["species"]["dir"]
+    TRIMS = [
+        ("{}/{}".format(_sd, t["source"]), t["keep"], t["label"], _sd, t["outfile"])
+        for t in _cfg.get("trim", [])
+    ]
+else:
+    TRIMS = _ALL_TRIMS
 
 for srcpath, keep, label, outdir, outfile in TRIMS:
     if not os.path.exists(srcpath):
@@ -428,19 +547,28 @@ PY
 do_zn_transfer() {
     step "Step 10 — transfer the catalytic Zn into the BoNT/E and /F models"
     run_pymol zn_transfer <<'PY'
-import os
+import os, json
 from pymol import cmd
 
-TEMPLATE = "2_Clostridium_botulinum/PDB_1XTG_BoNT_A_LC_SNAP25.pdb"
-BONT_MODELS = "2_Clostridium_botulinum"
-
-# AlphaFold predicts the protein, not its cofactor: these models arrive with no metal,
-# and a zinc metalloprotease without its zinc is the wrong receptor. Borrow the Zn from
-# the BoNT/A light-chain crystal by superposing the template onto the model.
-PAIRS = [
-    ("BoNT/E", "MODEL_Q00496_BoNT_E_AF.pdb", "MODEL_BoNT_E_with_Zn.pdb"),
-    ("BoNT/F", "MODEL_P30996_BoNT_F_AF.pdb", "MODEL_BoNT_F_with_Zn.pdb"),
-]
+_cfg_json = os.environ.get("OW_CONFIG_JSON", "")
+if _cfg_json:
+    _cfg = json.load(open(_cfg_json))
+    _sd = _cfg["species"]["dir"]
+    _zn_pairs = _cfg.get("zn_transfer", [])
+    _zn_tmpl  = _cfg.get("zn_template", {})
+    if not _zn_pairs or not _zn_tmpl:
+        print("no Zn transfer defined for this dataset — skipping")
+        raise SystemExit(0)
+    TEMPLATE = "{}/{}".format(_sd, _zn_tmpl["path"])
+    BONT_MODELS = _sd
+    PAIRS = [(p["label"], p["model"], p["outfile"]) for p in _zn_pairs]
+else:
+    TEMPLATE = "2_Clostridium_botulinum/PDB_1XTG_BoNT_A_LC_SNAP25.pdb"
+    BONT_MODELS = "2_Clostridium_botulinum"
+    PAIRS = [
+        ("BoNT/E", "MODEL_Q00496_BoNT_E_AF.pdb", "MODEL_BoNT_E_with_Zn.pdb"),
+        ("BoNT/F", "MODEL_P30996_BoNT_F_AF.pdb", "MODEL_BoNT_F_with_Zn.pdb"),
+    ]
 
 if not os.path.exists(TEMPLATE):
     raise SystemExit("template {} not found".format(TEMPLATE))
@@ -494,6 +622,7 @@ case "$STEP" in
 esac
 
 step "Done"
+echo "results folder       : $OUT_DIR"
 echo "receptors + sessions : $RECEPTORS"
 echo "models               : $DATASETS/*/MODEL_*.pdb"
 echo "next                 : set COMMAND=control in run_docking.sh and run it"
