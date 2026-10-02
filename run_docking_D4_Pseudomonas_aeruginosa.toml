@@ -1,0 +1,62 @@
+# Docking config — Pseudomonas aeruginosa (ExoA / ExoS / ExoT / ExoU)
+# Set CONFIG="run_docking_D4_Pseudomonas_aeruginosa.toml" in run_docking.sh
+# Paths are relative to the species directory.
+
+[species]
+name = "Pseudomonas aeruginosa"
+dir  = "4_Pseudomonas_aeruginosa"
+
+[[dock_target]]
+key           = "exoa"
+receptor      = "PDB_1AER_ExoA.pdb"
+pre_selection = "(chain A and polymer) or resn TAD"
+split_resn    = "TAD"
+keep_metals   = false
+center        = "ligand"
+box           = 24
+redock_resn   = "TAD"
+note          = "NAD cofactor site, chain A; TAD is a redocking control"
+
+[[dock_target]]
+key           = "exot_secretion"
+receptor      = "PDB_6JNP_ExoT_SpcS_complex.pdb"
+pre_selection = "(chain A or chain B) and polymer"
+split_resn    = "-"
+keep_metals   = false
+center        = "interface"
+box           = 24
+redock_resn   = "-"
+note          = "ExoT-SpcS interface; catalytic domain absent from this crystal"
+
+[[dock_target]]
+key           = "exos_cat"
+receptor      = "MODEL_ExoS_trimmed.pdb"
+pre_selection = "-"
+split_resn    = "-"
+keep_metals   = false
+center        = "user"
+box           = 24
+redock_resn   = "-"
+note          = "Model, ADPRT domain 232-453 (pLDDT 89) — locate a pocket, set CENTER_OVERRIDE"
+
+[[dock_target]]
+key           = "exot_cat"
+receptor      = "MODEL_ExoT_ADPRT_trimmed.pdb"
+pre_selection = "-"
+split_resn    = "-"
+keep_metals   = false
+center        = "user"
+box           = 24
+redock_resn   = "-"
+note          = "Model, ADPRT domain 236-457 (pLDDT 87) — locate a pocket, set CENTER_OVERRIDE"
+
+[[dock_target]]
+key           = "exou"
+receptor      = "MODEL_ExoU_PLA2_trimmed.pdb"
+pre_selection = "-"
+split_resn    = "-"
+keep_metals   = false
+center        = "user"
+box           = 24
+redock_resn   = "-"
+note          = "Model, PLA2 dyad region (pLDDT 72, weakest) — set CENTER_OVERRIDE"

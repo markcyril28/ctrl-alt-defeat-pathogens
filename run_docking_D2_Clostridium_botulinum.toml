@@ -1,0 +1,62 @@
+# Docking config — Clostridium botulinum (BoNT serotypes)
+# Set CONFIG="run_docking_D2_Clostridium_botulinum.toml" in run_docking.sh
+# Paths are relative to the species directory.
+
+[species]
+name = "Clostridium botulinum"
+dir  = "2_Clostridium_botulinum"
+
+[[dock_target]]
+key           = "bonta_lc"
+receptor      = "PDB_1XTG_BoNT_A_LC_SNAP25.pdb"
+pre_selection = "(chain A and polymer) or resn ZN"
+split_resn    = "ZN"
+keep_metals   = true
+center        = "ligand"
+box           = 22
+redock_resn   = "-"
+note          = "Catalytic Zn site; SNAP-25 chain B removed"
+
+[[dock_target]]
+key           = "bontb_cat"
+receptor      = "PDB_1EPW_BoNT_B.pdb"
+pre_selection = "polymer or resn ZN"
+split_resn    = "ZN"
+keep_metals   = true
+center        = "ligand"
+box           = 22
+redock_resn   = "-"
+note          = "Catalytic Zn site; the blocking sulfates are dropped"
+
+[[dock_target]]
+key           = "bontb_rbd"
+receptor      = "PDB_1I1E_BoNT_B_doxorubicin.pdb"
+pre_selection = "-"
+split_resn    = "DM2"
+keep_metals   = true
+center        = "ligand"
+box           = 24
+redock_resn   = "DM2"
+note          = "Receptor-binding site, 81 A from the Zn — cautionary control"
+
+[[dock_target]]
+key           = "bont_e"
+receptor      = "MODEL_BoNT_E_with_Zn.pdb"
+pre_selection = "-"
+split_resn    = "ZN"
+keep_metals   = true
+center        = "ligand"
+box           = 22
+redock_resn   = "-"
+note          = "Model + transferred Zn — run run_protein_modeling.sh STEP=zn-transfer first"
+
+[[dock_target]]
+key           = "bont_f"
+receptor      = "MODEL_BoNT_F_with_Zn.pdb"
+pre_selection = "-"
+split_resn    = "ZN"
+keep_metals   = true
+center        = "ligand"
+box           = 22
+redock_resn   = "-"
+note          = "Model + transferred Zn — run run_protein_modeling.sh STEP=zn-transfer first"

@@ -1,0 +1,18 @@
+# Docking config — Mycobacterium tuberculosis (CpnT / TNT toxin)
+# Set CONFIG="run_docking_D1_Mycobacterium_tuberculosis.toml" in run_docking.sh
+# Paths are relative to the species directory.
+
+[species]
+name = "Mycobacterium tuberculosis"
+dir  = "1_Mycobacterium_tuberculosis"
+
+[[dock_target]]
+key           = "tnt"
+receptor      = "PDB_4QLP_TNT_immunity.pdb"
+pre_selection = "chain B and polymer"
+split_resn    = "-"
+keep_metals   = false
+center        = "-3.75 20.87 -20.40"
+box           = 22
+redock_resn   = "-"
+note          = "NAD cleft at the IFT interface; chain A removed"
