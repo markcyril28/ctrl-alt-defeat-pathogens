@@ -47,10 +47,6 @@ env_exists() {
 }
 
 # ── Preflight ───────────────────────────────────────────────────────
-if ! command -v conda &>/dev/null; then
-    fail "conda not found. Install Miniforge first (see docs/Drafts/Bioinformatics_Workshop_Manual.md)."
-    exit 1
-fi
 info "conda $(conda --version 2>&1 | awk '{print $2}') found"
 
 PLATFORM="$(uname -s)-$(uname -m)"
