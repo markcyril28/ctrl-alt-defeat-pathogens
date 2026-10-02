@@ -24,6 +24,11 @@ set -euo pipefail
 COMMAND=""              # list | control | cautionary | prep | dock | prep-all
 TARGET=""               # target key for prep/dock (COMMAND=list shows them), e.g. bont_e
 
+# ── Which dataset ──────────────────────────────────────────────────
+# Point to one of the run_docking_D*.toml files to run only that species.
+# Leave empty to run all four species (original behaviour).
+CONFIG=""               # e.g. "run_docking_D3_Klebsiella_pneumoniae.toml"
+
 # ── Vina search settings — the knobs you are most likely to change ──
 EXHAUSTIVENESS=16       # search effort: higher digs harder but runs slower
 SEED=42                 # random seed: fixed so a run reproduces exactly
@@ -35,9 +40,9 @@ CENTER_OVERRIDE=""      # box centre "X Y Z"; required for the model-based (user
 BOX_OVERRIDE=""         # cube edge in angstrom; empty = the recipe's value
 
 # ── Environment and paths ───────────────────────────────────────────
-ENV_WANTED="${OLOGIST_ENV:-}"   # conda env name; OLOGIST_ENV wins, empty = autodetect
+ENV_WANTED="${OLOGIST_ENV:-protein_modeling}"   # conda env name; OLOGIST_ENV wins
 DATASETS=""             # dataset folder; empty = <script dir>/Datasets
-OUT_DIR=""              # run folder; empty = <script dir>/work/docking
+OUT_DIR=""              # run folder; empty = <script dir>/RESULTS/2_Docking
 
 # ── Behavior toggles ────────────────────────────────────────────────
 SKIP_CONTROL_CHECK=false  # true = dock even though the FimH control has not passed here
@@ -47,7 +52,14 @@ DRY_RUN=false             # true = print the commands, run nothing
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ -z "$DATASETS" ]] && DATASETS="$ROOT/Datasets"
 [[ -d "$DATASETS" ]] && DATASETS="$(cd "$DATASETS" && pwd)"
-[[ -z "$OUT_DIR"  ]] && OUT_DIR="$ROOT/work/docking"
+[[ -z "$OUT_DIR"  ]] && OUT_DIR="$ROOT/RESULTS/2_Docking"
+
+# ── Dataset config ──────────────────────────────────────────────────
+if [[ -n "$CONFIG" ]]; then
+    _cfg_path="$CONFIG"
+    [[ "$_cfg_path" = /* ]] || _cfg_path="$ROOT/$_cfg_path"
+    [[ -f "$_cfg_path" ]] || { printf '\033[0;31m[FAIL]\033[0m config not found: %s\n' "$_cfg_path" >&2; exit 1; }
+fi
 
 GREEN='\033[0;32m'  YELLOW='\033[0;33m'  RED='\033[0;31m'  BLUE='\033[0;34m'  NC='\033[0m'
 info()  { printf "${GREEN}[OK]${NC}   %s\n" "$*"; }
@@ -79,6 +91,40 @@ exou	4_Pseudomonas_aeruginosa/MODEL_ExoU_PLA2_trimmed.pdb	-	-	no	user	24	-	Model
 mrkd	3_Klebsiella_pneumoniae/MODEL_MrkD_trimmed.pdb	-	-	no	user	22	-	Model, pLDDT 89, no known ligand — find a pocket first, set CENTER_OVERRIDE
 TSV
 )
+
+# ── Override RECIPES from CONFIG if provided ────────────────────────
+if [[ -n "$CONFIG" ]]; then
+    RECIPES="$(python3 -c "
+import sys, json
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+with open(sys.argv[1], 'rb') as f:
+    cfg = tomllib.load(f)
+sd = cfg['species']['dir']
+for t in cfg.get('dock_target', []):
+    ps  = t.get('pre_selection', '-')
+    sr  = t.get('split_resn', '-')
+    km  = 'yes' if t.get('keep_metals', False) else 'no'
+    ctr = t.get('center', 'user')
+    box = t.get('box', 22)
+    rr  = t.get('redock_resn', '-')
+    note = t.get('note', '')
+    rec = '{}/{}'.format(sd, t['receptor'])
+    print('\t'.join([t['key'], rec, ps, sr, km, str(ctr), str(box), rr, note]))
+" "$_cfg_path")" || { fail "could not parse $CONFIG"; exit 1; }
+    _species_name="$(python3 -c "
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+import sys
+with open(sys.argv[1],'rb') as f: cfg=tomllib.load(f)
+print(cfg['species']['name'])
+" "$_cfg_path")"
+    info "config: $CONFIG — $_species_name"
+fi
 
 # ── Validate the control-panel settings ─────────────────────────────
 case "$COMMAND" in
@@ -159,7 +205,7 @@ resolve_env() {
     fi
     local candidates=() name prefix
     [[ -n "$ENV_WANTED" ]] && candidates+=("$ENV_WANTED")
-    candidates+=(dock-workshop protein_modeling protein_model)
+    candidates+=(protein_modeling)
     for name in "${candidates[@]}"; do
         prefix="$(conda info --envs 2>/dev/null | awk -v n="$name" '$1==n {print $NF}')" || true
         [[ -z "$prefix" ]] && continue
@@ -198,8 +244,6 @@ run_pymol() {
 }
 
 # ── Receptor preparation ────────────────────────────────────────────
-# Returns through the globals PREPARED_RECEPTOR (basename of the PDBQT/box) and
-# REF_LIGAND (the crystal ligand PDB, empty when there is none).
 prepare_target() {
     load_recipe "$1"
     local work="$OUT_DIR/$R_KEY"
@@ -395,7 +439,9 @@ cmd_control() {
     step "Step 9 — validate the protocol on a known answer (mannose into FimH)"
     echo "9AT9 holds mannose in its pocket at 1.34 A. Strip it, dock it back, and measure"
     echo "how close it lands. If this fails, no score from this setup means anything."
-    if redock_and_score fimh; then
+    local rc=0
+    redock_and_score fimh || rc=$?
+    if [[ $rc -eq 0 ]]; then
         $DRY_RUN || { mkdir -p "$OUT_DIR"; date -u +"passed %Y-%m-%dT%H:%M:%SZ" > "$CONTROL_STAMP"; }
         info "PASS — the protocol reproduces the crystal pose. Scores are worth interpreting."
     else
@@ -414,7 +460,9 @@ cmd_cautionary() {
     echo "so redocking it looks like a second control. It is expected to FAIL: the ligand"
     echo "sits 81 A from the catalytic Zn in the receptor-binding domain, and a confident"
     echo "score on the wrong pose is the failure mode this exercise exists to show."
-    if redock_and_score bontb_rbd; then
+    local rc=0
+    redock_and_score bontb_rbd || rc=$?
+    if [[ $rc -eq 0 ]]; then
         warn "This one PASSED, which the manual does not expect — read $OUT_DIR/bontb_rbd/rmsd.log"
         warn "and check which site the box actually covered before drawing any conclusion."
     else
@@ -525,5 +573,5 @@ case "$COMMAND" in
 esac
 
 step "Done"
-echo "run folder : $OUT_DIR"
-echo "manual     : docs/Drafts/Protein_Modeling_Workshop_Manual.md (Steps 9-11)"
+echo "results folder : $OUT_DIR"
+echo "manual         : docs/Drafts/Protein_Modeling_Workshop_Manual.md (Steps 9-11)"
