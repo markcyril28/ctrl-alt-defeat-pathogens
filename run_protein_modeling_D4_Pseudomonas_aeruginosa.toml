@@ -1,0 +1,102 @@
+# Protein modeling config — Pseudomonas aeruginosa (ExoA / ExoS / ExoT / ExoU)
+# Set CONFIG="run_protein_modeling_D4_Pseudomonas_aeruginosa.toml" in run_protein_modeling.sh
+# Paths are relative to the species directory.
+
+[species]
+name = "Pseudomonas aeruginosa"
+dir  = "4_Pseudomonas_aeruginosa"
+
+# Step 6 — clean receptors
+[[clean]]
+name    = "ExoA"
+pdb     = "PDB_1AER_ExoA.pdb"
+keep    = "chain A and polymer"
+drop    = "TAD+TIA+AMP"
+zn      = 0
+outfile = "ExoA_receptor_clean.pdb"
+
+[[clean]]
+name    = "ExoT-SpcS interface"
+pdb     = "PDB_6JNP_ExoT_SpcS_complex.pdb"
+keep    = "(chain A or chain B) and polymer"
+drop    = "GOL"
+zn      = 0
+outfile = "ExoT_SpcS_clean.pdb"
+
+# Step 8a/8b — AlphaFold fetch targets
+[[fetch_target]]
+accession = "G3XDA1"
+name      = "ExoS"
+note      = "P. aeruginosa T3SS effector — no PDB in dataset"
+
+[[fetch_target]]
+accession = "Q9I788"
+name      = "ExoT"
+note      = "ExoT catalytic domains — 6JNP/4JMF cover residues 23-79 only"
+
+[[fetch_target]]
+accession = "O34208"
+name      = "ExoU"
+note      = "P. aeruginosa phospholipase A2 — no PDB in dataset"
+
+# Step 8c — pLDDT regions
+[[plddt]]
+model = "MODEL_Q9I788_ExoT_AF.pdb"
+label = "whole chain"
+
+[[plddt]]
+model = "MODEL_Q9I788_ExoT_AF.pdb"
+label = "ADPRT domain 236-457"
+first = 236
+last  = 457
+
+[[plddt]]
+model = "MODEL_Q9I788_ExoT_AF.pdb"
+label = "GAP domain 78-235"
+first = 78
+last  = 235
+
+[[plddt]]
+model = "MODEL_Q9I788_ExoT_AF.pdb"
+label = "chaperone-binding 23-79"
+first = 23
+last  = 79
+
+[[plddt]]
+model = "MODEL_G3XDA1_ExoS_AF.pdb"
+label = "whole chain"
+
+[[plddt]]
+model = "MODEL_G3XDA1_ExoS_AF.pdb"
+label = "ADPRT domain 232-453"
+first = 232
+last  = 453
+
+[[plddt]]
+model = "MODEL_O34208_ExoU_AF.pdb"
+label = "whole chain"
+
+[[plddt]]
+model = "MODEL_O34208_ExoU_AF.pdb"
+label = "PLA2 region 107-357"
+first = 107
+last  = 357
+
+# Step 8f — trim low-confidence regions
+[[trim]]
+source  = "MODEL_G3XDA1_ExoS_AF.pdb"
+keep    = "not resi 1-96"
+label   = "ExoS GAP+ADPRT"
+outfile = "MODEL_ExoS_trimmed.pdb"
+
+[[trim]]
+source  = "MODEL_Q9I788_ExoT_AF.pdb"
+keep    = "resi 236-457"
+label   = "ExoT ADPRT"
+outfile = "MODEL_ExoT_ADPRT_trimmed.pdb"
+
+[[trim]]
+source  = "MODEL_O34208_ExoU_AF.pdb"
+keep    = "resi 107-357"
+label   = "ExoU PLA2 region"
+outfile = "MODEL_ExoU_PLA2_trimmed.pdb"
