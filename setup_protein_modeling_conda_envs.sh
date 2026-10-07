@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# setup_conda_envs.sh — Create the Ologist Workshop conda environment
+# setup_protein_modeling_conda_envs.sh — Create the Ologist Workshop conda environment
 # Run from: Ubuntu/WSL terminal  or  Mac Terminal
-# Usage:    bash setup_conda_envs.sh
-#           bash setup_conda_envs.sh --dry-run     # show what would be created
+# Usage:    bash setup_protein_modeling_conda_envs.sh
+#           bash setup_protein_modeling_conda_envs.sh --dry-run     # show what would be created
 #
 # Environment created:
 #   protein_model — python 3.11, biopython, pandas, pymol, NGS tools, docking (Vina)
