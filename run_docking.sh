@@ -42,7 +42,7 @@ BOX_OVERRIDE=""         # cube edge in angstrom; empty = the recipe's value
 # ── Environment and paths ───────────────────────────────────────────
 ENV_WANTED="${OLOGIST_ENV:-protein_modeling}"   # conda env name; OLOGIST_ENV wins
 DATASETS=""             # dataset folder; empty = <script dir>/Datasets
-OUT_DIR=""              # run folder; empty = <script dir>/RESULTS/2_Docking
+OUT_DIR=""              # run folder; empty = <script dir>/RESULTS/3_Docking
 
 # ── Behavior toggles ────────────────────────────────────────────────
 SKIP_CONTROL_CHECK=false  # true = dock even though the FimH control has not passed here
@@ -52,7 +52,7 @@ DRY_RUN=false             # true = print the commands, run nothing
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ -z "$DATASETS" ]] && DATASETS="$ROOT/Datasets"
 [[ -d "$DATASETS" ]] && DATASETS="$(cd "$DATASETS" && pwd)"
-[[ -z "$OUT_DIR"  ]] && OUT_DIR="$ROOT/RESULTS/2_Docking"
+[[ -z "$OUT_DIR"  ]] && OUT_DIR="$ROOT/RESULTS/3_Docking"
 
 # ── Dataset config ──────────────────────────────────────────────────
 if [[ -n "$CONFIG" ]]; then
@@ -94,35 +94,9 @@ TSV
 
 # ── Override RECIPES from CONFIG if provided ────────────────────────
 if [[ -n "$CONFIG" ]]; then
-    RECIPES="$(python3 -c "
-import sys, json
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib
-with open(sys.argv[1], 'rb') as f:
-    cfg = tomllib.load(f)
-sd = cfg['species']['dir']
-for t in cfg.get('dock_target', []):
-    ps  = t.get('pre_selection', '-')
-    sr  = t.get('split_resn', '-')
-    km  = 'yes' if t.get('keep_metals', False) else 'no'
-    ctr = t.get('center', 'user')
-    box = t.get('box', 22)
-    rr  = t.get('redock_resn', '-')
-    note = t.get('note', '')
-    rec = '{}/{}'.format(sd, t['receptor'])
-    print('\t'.join([t['key'], rec, ps, sr, km, str(ctr), str(box), rr, note]))
-" "$_cfg_path")" || { fail "could not parse $CONFIG"; exit 1; }
-    _species_name="$(python3 -c "
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib
-import sys
-with open(sys.argv[1],'rb') as f: cfg=tomllib.load(f)
-print(cfg['species']['name'])
-" "$_cfg_path")"
+    RECIPES="$(python3 "$ROOT/modules/parse_config.py" docking-recipes "$_cfg_path")" \
+        || { fail "could not parse $CONFIG"; exit 1; }
+    _species_name="$(python3 "$ROOT/modules/parse_config.py" species-name-toml "$_cfg_path")"
     info "config: $CONFIG — $_species_name"
 fi
 
@@ -154,13 +128,9 @@ load_recipe() {
     IFS=$'\t' read -r R_KEY R_PDB R_PRE R_SPLIT R_METALS R_CENTER R_BOX R_REDOCK R_NOTE <<<"$line"
     if [[ -n "$BOX_OVERRIDE" ]]; then R_BOX="$BOX_OVERRIDE"; fi
     if [[ -n "$CENTER_OVERRIDE" ]]; then R_CENTER="$CENTER_OVERRIDE"; fi
-    # An explicit success: a function whose last statement is `[[ ... ]] && x` returns 1
-    # when the test is false, and under `set -e` that aborts the caller.
     return 0
 }
 
-# Residue names that are cofactors, not ligands to be docked: a box may be centred on
-# one, but it has to stay in the receptor.
 is_metal() {
     case "$1" in
         ZN|MG|MN|FE|CU|NI|CO|CA) return 0 ;;
@@ -210,8 +180,6 @@ resolve_env() {
         prefix="$(conda info --envs 2>/dev/null | awk -v n="$name" '$1==n {print $NF}')" || true
         [[ -z "$prefix" ]] && continue
         if tools_present "$prefix/bin"; then
-            # Prepend to PATH, not just call by absolute path: dock_prep.py shells out to
-            # the meeko scripts, so they have to be findable by the child process too.
             export PATH="$prefix/bin:$PATH"
             info "using conda environment '$name' ($prefix)"
             return
@@ -237,8 +205,7 @@ dock_prep() {
 }
 
 run_pymol() {
-    local script="$TMP/$1.py"; shift
-    cat > "$script"
+    local script="$1"
     if $DRY_RUN; then printf '  [dry-run] pymol -cq %s\n' "$script"; return 0; fi
     ( cd "$DATASETS" && pymol -cq "$script" )
 }
@@ -265,17 +232,7 @@ prepare_target() {
     local split_input="$R_PDB"
     if [[ "$R_PRE" != "-" ]]; then
         OW_IN="$R_PDB" OW_OUT="$work/receptor_subset.pdb" OW_KEEP="$R_PRE" \
-        run_pymol subset <<'PY'
-import os
-from pymol import cmd
-cmd.load(os.environ["OW_IN"], "src")
-before = cmd.count_atoms("src")
-cmd.create("sub", "src and ({})".format(os.environ["OW_KEEP"]))
-cmd.remove("sub and solvent")
-cmd.save(os.environ["OW_OUT"], "sub")
-print("subset: {} -> {} atoms kept by `{}`".format(
-    before, cmd.count_atoms("sub"), os.environ["OW_KEEP"]))
-PY
+        run_pymol "$ROOT/modules/docking/subset_receptor.py"
         split_input="$work/receptor_subset.pdb"
     fi
 
@@ -289,41 +246,14 @@ PY
         receptor_pdb="$work/receptor.pdb"
         REF_LIGAND="$work/ligand_ref.pdb"
 
-        # `dock_prep.py split` builds its receptor as "everything kept AND NOT the split
-        # residue", so splitting on the catalytic metal strips that metal out of the
-        # receptor: --keep-metals only protects the *other* metals. For a metal site the
-        # split is therefore used only to measure the box centre, and the receptor is
-        # rebuilt from the subset with the metal still in place. A zinc metalloprotease
-        # without its zinc is not the enzyme you meant to dock into.
         if is_metal "$R_SPLIT"; then
             OW_IN="$split_input" OW_OUT="$work/receptor_with_metal.pdb" OW_METAL="$R_SPLIT" \
-            run_pymol keep_metal <<'PYSCRIPT'
-import os
-from pymol import cmd
-metal = os.environ["OW_METAL"]
-cmd.load(os.environ["OW_IN"], "rec")
-cmd.remove("rec and solvent")
-cmd.remove("rec and hydro")
-count = cmd.count_atoms("rec and resn {}".format(metal))
-cmd.save(os.environ["OW_OUT"], "rec")
-print("receptor keeps its cofactor: {} x {} ({} heavy atoms total)".format(
-    count, metal, cmd.count_atoms("rec")))
-if count == 0:
-    raise SystemExit("ERROR: no {} left in the receptor - check the pre-selection".format(metal))
-PYSCRIPT
+            run_pymol "$ROOT/modules/docking/keep_metal.py"
             receptor_pdb="$work/receptor_with_metal.pdb"
         fi
     else
         OW_IN="$split_input" OW_OUT="$work/receptor.pdb" \
-        run_pymol strip <<'PY'
-import os
-from pymol import cmd
-cmd.load(os.environ["OW_IN"], "rec")
-cmd.remove("rec and solvent")
-cmd.remove("rec and hydro")
-cmd.save(os.environ["OW_OUT"], "rec")
-print("receptor: {} heavy atoms".format(cmd.count_atoms("rec")))
-PY
+        run_pymol "$ROOT/modules/docking/strip_receptor.py"
         receptor_pdb="$work/receptor.pdb"
     fi
 
@@ -334,25 +264,7 @@ PY
             centre_args=(--ref-ligand "$REF_LIGAND") ;;
         interface)
             local centre
-            centre="$(OW_IN="$split_input" run_pymol interface <<'PY'
-import os
-from pymol import cmd
-cmd.load(os.environ["OW_IN"], "src")
-# The contact surface between the effector and its chaperone, not either chain's
-# own centre of mass — a box on the whole complex would search mostly solvent.
-cmd.select("contacts", "(src and chain A and polymer and not hydro) within 4.5 of "
-                       "(src and chain B and polymer and not hydro)")
-n = cmd.count_atoms("contacts")
-if n == 0:
-    raise SystemExit("ERROR: no A/B interface contacts found")
-# The centroid of the contact atoms, matching what toxin_load.box_from_selection
-# reports as "atom centroid" — not the mass-weighted centre.
-coords = cmd.get_coords("contacts")
-x, y, z = (float(v) for v in coords.mean(axis=0))
-print("interface contact atoms: {}".format(n))
-print("CENTRE {:.2f} {:.2f} {:.2f}".format(x, y, z))
-PY
-)"
+            centre="$(OW_IN="$split_input" run_pymol "$ROOT/modules/docking/interface_center.py")"
             if $DRY_RUN; then
                 centre_args=(--center-x 0 --center-y 0 --center-z 0)
             else
@@ -410,7 +322,6 @@ run_vina() {
     info "poses: $work/poses.pdbqt and $work/poses.sdf"
 }
 
-# Redock the crystal ligand and report whether the protocol reproduced a known answer.
 redock_and_score() {
     local key="$1"
     local work="$OUT_DIR/$key"
@@ -509,7 +420,6 @@ cmd_dock() {
         return
     fi
 
-    # No crystal ligand and none supplied: prepare the site and say so plainly.
     prepare_target "$TARGET"
     step "Result"
     echo "$TARGET has no crystal ligand to redock, so nothing was docked."
@@ -528,8 +438,6 @@ cmd_dock() {
 }
 
 cmd_prep_all() {
-    # Collect the keys first: the prepared targets run PyMOL and Vina, which must not
-    # inherit the recipe list on stdin.
     local keys=() key centre pdb
     while IFS=$'\t' read -r key _ _ _ _ centre _; do
         [[ -z "$key" ]] && continue
@@ -547,8 +455,6 @@ cmd_prep_all() {
             warn "skipping $key — receptor file missing: $pdb"
             continue
         fi
-        # Isolate each target in a subshell so one crystal meeko cannot template
-        # (e.g. bontb_cat / 1EPW) does not abort the whole batch under `set -e`.
         if ( prepare_target "$key" </dev/null ); then
             :
         else
