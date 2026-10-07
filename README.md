@@ -24,7 +24,7 @@ The setup guide is organised as:
 - **Part 1 — Get a Linux terminal.** Module 1 (Windows: Ubuntu via WSL) or Module 2 (Mac).
 - **Part 2 — conda.** Module 3: Miniforge and the `protein_modeling` environment. Everyone.
 - **Part 3 — Git, GitHub, VS Code.** Modules 4–6. Publishing to GitHub is optional.
-- **Part 4 — Metagenomics.** Module 7: the `metagenomics_env` environment. Only if your session covers it.
+- **Part 4 — Metagenomics.** Module 7: the `metagenomics_env` environment.
 - **Part 5 — Checkpoints and a troubleshooting table.**
 
 Budget about **90 minutes** and ~10 GB of free disk, plus one Windows restart.
