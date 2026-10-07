@@ -10,8 +10,7 @@
 #   metagenomics_env — python 3.10, FastQC, NanoStat, fastp, fastplong, SPAdes (metaSPAdes),
 #                      Flye (MetaFlye), QUAST (metaQUAST), Bandage, Bakta, AMRFinderPlus, ABRicate
 #
-# Not installed: OPERA-MS — not a conda package; build it from source only if the trainer asks
-#   (Module 7 Step 5 of docs/Drafts/Mine/Bioinformatics_Workshop_Setup_Instructions.md).
+# Not installed: OPERA-MS — not a conda package; build it from source only if the trainer asks.
 #
 # Idempotent: skips the environment if it already exists, and the Bakta database if present.
 # Kept separate from protein_modeling: the assemblers' dependencies would downgrade its packages.
