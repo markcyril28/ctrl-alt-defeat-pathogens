@@ -34,6 +34,12 @@ ASSEMBLIES="RESULTS/metagenomics/Assemblies"
 OUT="RESULTS/metagenomics/09_Annotation"
 # ============================================================
 
+if [[ ! -f "$DB_DIR/version.json" ]]; then
+    echo "ERROR: no Bakta database at $DB_DIR"
+    echo "Download it with:  bash setup_metagenomics_conda_envs.sh --with-db"
+    exit 1
+fi
+
 mkdir -p "$OUT"
 
 for FASTA in "$ASSEMBLIES"/*.fasta; do
