@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+
+# ── Platform: set this for the machine you are installing on ────────
+#   OS_TYPE="linux"     Ubuntu or WSL
+#   OS_TYPE="mac"       Intel Mac
+#   OS_TYPE="mac-arm"   Apple Silicon Mac (M1–M4) — some envs use Intel packages through Rosetta 2
+#   OS_TYPE="auto"      detect it from the machine
+# --os=<value> on the command line overrides it for one run.
+OS_TYPE="auto"
+# ────────────────────────────────────────────────────────────────────
+
 # setup_metagenomics_conda_envs.sh — Create the Ologist Workshop metagenomics conda environments
 # Run from: Ubuntu/WSL terminal  or  Mac Terminal
 # Usage:    bash setup_metagenomics_conda_envs.sh
@@ -6,6 +16,7 @@
 #           bash setup_metagenomics_conda_envs.sh --no-db          # skip the database downloads
 #           bash setup_metagenomics_conda_envs.sh --db-dir=/path/to/databases
 #           bash setup_metagenomics_conda_envs.sh --no-mamba       # install with conda only
+#           bash setup_metagenomics_conda_envs.sh --os=mac-arm     # linux | mac | mac-arm (default: detected)
 #
 # Environments created (names set at the top of the script):
 #   meta_env          — python 3.10, FastQC, NanoStat, fastp, fastplong, SPAdes (metaSPAdes),
@@ -24,7 +35,8 @@
 # Exceptions: annotation tools that older runs put in the core env are removed from it,
 # and an older-schema Bakta database is replaced.
 # Kept separate from protein_modeling: the assemblers' dependencies would downgrade its packages.
-# bioconda packages require Linux or macOS.
+# bioconda packages require Linux or macOS. On Apple Silicon, meta_env and meta_abricate_env are built from
+# Intel (osx-64) packages and run under Rosetta 2 (OS_TYPE at the top); meta_annot_env stays native.
 # Every run is also written to logs/setup_metagenomics_conda_envs_<date>_<time>.log next to this script.
 
 #set -euo pipefail
@@ -33,6 +45,13 @@
 CORE_ENV="meta_env"                # QC → assembly → evaluation; the env students activate
 ANNOT_ENV="meta_annot_env"         # Bakta and AMRFinderPlus, reached through wrappers in CORE_ENV
 ABRICATE_ENV="meta_abricate_env"   # ABRicate, reached the same way
+# ────────────────────────────────────────────────────────────────────
+
+# ── Apple Silicon (OS_TYPE="mac-arm") ───────────────────────────────
+# These envs are built from Intel (osx-64) packages, which macOS runs through Rosetta 2; the rest stay native arm64.
+# bioconda has no arm64 Bandage, only a Python 2.7 QUAST (4.6.3) for arm64, and no arm64 perl-socket for
+# ABRicate's BioPerl. Bakta and AMRFinderPlus have arm64 builds, so meta_annot_env is not listed.
+MAC_ARM_INTEL_ENVS="$CORE_ENV $ABRICATE_ENV"
 # ────────────────────────────────────────────────────────────────────
 
 # ── Configuration ──────────────────────────────────────
@@ -57,7 +76,7 @@ DB_DIR="$HOME/workshop/databases"
 # ────────────────────────────────────────────────────────────────────
 
 DRY_RUN=false
-WITH_DB=true
+WITH_DB=false
 
 for arg in "$@"; do
     case "$arg" in
@@ -66,8 +85,9 @@ for arg in "$@"; do
         --no-db)     WITH_DB=false ;;
         --db-dir=*)  DB_DIR="${arg#--db-dir=}" ;;
         --no-mamba)  USE_MAMBA=false ;;
+        --os=*)      OS_TYPE="${arg#--os=}" ;;
         -h|--help)
-            sed -n '2,28p' "$0"
+            sed -n '/^# setup_metagenomics_conda_envs.sh/,/^# Every run is also written/p' "$0"
             exit 0 ;;
         *)
             echo "Unknown option: $arg"; exit 1 ;;
@@ -211,12 +231,18 @@ install_bakta_db() {
 CHANNELS=(--override-channels -c "$CHANNEL_MAIN" -c "$CHANNEL_BIO")
 
 # Create env $1 from the package specs that follow, unless it already exists. Returns 1 if it cannot be built.
+# On mac-arm, an env named in MAC_ARM_INTEL_ENVS is built from osx-64 packages, and records that platform
+# so later installs into it stay on it.
 # mamba goes first when $INSTALLER is mamba. Both solve with libmamba, but mamba 2.8's sharded index once
 # reported conda-forge packages (isa-l, libdeflate) as missing for this package set, so a mamba failure
 # is retried with conda rather than reported.
 make_env() {
-    local name="$1"
+    local name="$1" subdir="" platform=()
     shift
+    if [[ $OS_TYPE == mac-arm && " $MAC_ARM_INTEL_ENVS " == *" $name "* ]]; then
+        subdir="osx-64"
+        platform=(--platform "$subdir")
+    fi
     echo ""
     echo "━━━ $name ━━━"
     if env_exists "$name"; then
@@ -224,24 +250,30 @@ make_env() {
         return 0
     fi
     if $DRY_RUN; then
-        echo "  [dry-run] $INSTALLER create -y -n $name --strict-channel-priority ${CHANNELS[*]} $*"
+        echo "  [dry-run] $INSTALLER create -y -n $name${subdir:+ --platform $subdir} --strict-channel-priority ${CHANNELS[*]} $*"
         if [[ $INSTALLER == mamba ]]; then
             echo "  [dry-run] if mamba fails: conda create with the same arguments"
         fi
         return 0
     fi
-    echo "Creating $name with $INSTALLER (several minutes of downloading is normal) ..."
+    echo "Creating $name with $INSTALLER${subdir:+ from $subdir packages} (several minutes of downloading is normal) ..."
+    local built=false
     if [[ $INSTALLER == mamba ]]; then
         # MAMBA_ROOT_PREFIX puts the env in conda's envs folder, where conda (and env_exists) look for it
-        if MAMBA_ROOT_PREFIX="$CONDA_BASE" mamba create -y -n "$name" --strict-channel-priority \
+        if MAMBA_ROOT_PREFIX="$CONDA_BASE" mamba create -y -n "$name" "${platform[@]}" --strict-channel-priority \
                 "${CHANNELS[@]}" "$@" && env_exists "$name"; then
-            info "$name created"
-            return 0
+            built=true
+        else
+            warn "mamba could not create $name — retrying with conda"
+            conda env remove -y -n "$name" &>/dev/null || true   # clear any half-built env
         fi
-        warn "mamba could not create $name — retrying with conda"
-        conda env remove -y -n "$name" &>/dev/null || true   # clear any half-built env
     fi
-    if conda create -y -n "$name" --strict-channel-priority "${CHANNELS[@]}" "$@"; then
+    if $built || conda create -y -n "$name" "${platform[@]}" --strict-channel-priority "${CHANNELS[@]}" "$@"; then
+        # conda --platform records the subdir in the env's .condarc; mamba does not, so it is written either way.
+        # Written directly: "conda config --file" seeds a new file with the defaults channel.
+        if [[ -n "$subdir" ]]; then
+            printf 'subdir: %s\n' "$subdir" > "$(env_prefix "$name")/.condarc"
+        fi
         info "$name created"
         return 0
     fi
@@ -293,17 +325,43 @@ if ! command -v conda &>/dev/null; then
 fi
 info "conda $(conda --version 2>&1 | awk '{print $2}') found"
 
+# OS_TYPE "auto" becomes what uname reports; a value set by hand must at least match Linux vs macOS
 PLATFORM="$(uname -s)-$(uname -m)"
-info "Platform: $PLATFORM"
-info "Log: $SETUP_LOG"
-
-case "$(uname -s)" in
-    Linux|Darwin) ;;
+case "$PLATFORM" in
+    Linux-*)      DETECTED_OS=linux ;;
+    Darwin-arm64) DETECTED_OS=mac-arm ;;
+    Darwin-*)     DETECTED_OS=mac ;;
     *)
         fail "bioconda packages require Linux or macOS (detected: $(uname -s))."
         fail "Run this script inside WSL Ubuntu, not Windows Miniforge Prompt."
         exit 1 ;;
 esac
+if [[ $OS_TYPE == auto ]]; then
+    OS_TYPE="$DETECTED_OS"
+fi
+case "$OS_TYPE" in
+    linux|mac|mac-arm) ;;
+    *)
+        fail "OS_TYPE must be auto, linux, mac or mac-arm (got: $OS_TYPE)"
+        exit 1 ;;
+esac
+if [[ ${OS_TYPE%-arm} != "${DETECTED_OS%-arm}" ]]; then
+    fail "OS_TYPE is $OS_TYPE, but this machine is $PLATFORM — set OS_TYPE=auto (or --os=$DETECTED_OS)"
+    exit 1
+elif [[ $OS_TYPE != "$DETECTED_OS" ]]; then
+    warn "OS_TYPE is $OS_TYPE, but this machine looks like $DETECTED_OS ($PLATFORM) — continuing as $OS_TYPE"
+fi
+info "Platform: $PLATFORM → $OS_TYPE"
+info "Log: $SETUP_LOG"
+
+if [[ $OS_TYPE == mac-arm && -n "${MAC_ARM_INTEL_ENVS// /}" ]]; then
+    if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+        fail "Rosetta 2 is needed on Apple Silicon for:$(printf ' %s' $MAC_ARM_INTEL_ENVS) (see MAC_ARM_INTEL_ENVS)."
+        fail "Install it with:  softwareupdate --install-rosetta --agree-to-license   — then rerun this script."
+        exit 1
+    fi
+    info "Apple Silicon: Intel (osx-64) packages through Rosetta 2 for:$(printf ' %s' $MAC_ARM_INTEL_ENVS)"
+fi
 
 INSTALLER=conda
 if $USE_MAMBA && command -v mamba &>/dev/null; then
