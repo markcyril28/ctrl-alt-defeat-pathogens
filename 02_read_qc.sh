@@ -43,7 +43,7 @@ mkdir -p "$OUT/$WHICH/short_reads"
 # Two input files, so two threads. More would sit idle.
 fastqc "$R1" "$R2" \
     --outdir "$OUT/$WHICH/short_reads" \
-    --threads 2
+    --threads 4
 
 NanoStat \
     --fastq "$LONG_READS" \
