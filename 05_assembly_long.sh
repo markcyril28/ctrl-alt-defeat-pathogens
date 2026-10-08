@@ -13,7 +13,7 @@
 # basecalled nanopore reads; use --nano-hq only for Q20+ or SUP basecalling,
 # and --pacbio-raw for PacBio. Telling Flye the wrong thing wastes the run.
 #
-# Needs:  conda activate metagenomics_env
+# Needs:  conda activate meta_env
 # Run from the workshop folder:  bash 05_assembly_long.sh
 # ============================================================================
 

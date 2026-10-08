@@ -14,7 +14,7 @@
 # Do not choose an assembly on N50 alone. One long wrong contig raises N50.
 # Read total length, genome fraction and misassemblies together.
 #
-# Needs:  conda activate metagenomics_env
+# Needs:  conda activate meta_env
 # Run from the workshop folder:  bash 07_assembly_evaluation.sh
 # ============================================================================
 

@@ -13,7 +13,7 @@
 # The cleaned reads go to a new folder. The raw files are never written to:
 # they are the one thing in this workshop you cannot regenerate.
 #
-# Needs:  conda activate metagenomics_env
+# Needs:  conda activate meta_env
 # Run from the workshop folder:  bash 03_read_cleaning.sh
 # ============================================================================
 

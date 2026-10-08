@@ -11,7 +11,7 @@
 # does not improve it by definition. Measuring both is the only way to know
 # what it did. Worksheet sections 3 and 5.
 #
-# Needs:  conda activate metagenomics_env
+# Needs:  conda activate meta_env
 # Run from the workshop folder:  bash 02_read_qc.sh
 # ============================================================================
 

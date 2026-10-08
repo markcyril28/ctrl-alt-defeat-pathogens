@@ -14,7 +14,7 @@
 # OPERA-MS writes no graph file, so only the two single-technology assemblies
 # appear here.
 #
-# Needs:  conda activate metagenomics_env
+# Needs:  conda activate meta_env
 # Run from the workshop folder:  bash 08_assembly_graph.sh
 # ============================================================================
 

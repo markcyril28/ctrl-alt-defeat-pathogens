@@ -17,7 +17,7 @@
 # No organism is given to AMRFinderPlus on purpose. The --organism option
 # applies species-specific rules, and a metagenome is not one species.
 #
-# Needs:  conda activate metagenomics_env
+# Needs:  conda activate meta_env
 # Run from the workshop folder:  bash 10_amr_virulence_screening.sh
 # ============================================================================
 

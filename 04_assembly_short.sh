@@ -15,7 +15,7 @@
 # The main output is copied to RESULTS/metagenomics/Assemblies/, which is
 # where programs 07 to 10 look for assemblies.
 #
-# Needs:  conda activate metagenomics_env
+# Needs:  conda activate meta_env
 # Run from the workshop folder:  bash 04_assembly_short.sh
 # ============================================================================
 
