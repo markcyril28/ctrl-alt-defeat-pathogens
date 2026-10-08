@@ -27,7 +27,7 @@
 # bioconda packages require Linux or macOS.
 # Every run is also written to logs/setup_metagenomics_conda_envs_<date>_<time>.log next to this script.
 
-set -euo pipefail
+#set -euo pipefail
 
 # ── Conda environments ──────────────────────────────────────────────
 CORE_ENV="meta_env"                # QC → assembly → evaluation; the env students activate
