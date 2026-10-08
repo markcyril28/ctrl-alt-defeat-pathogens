@@ -13,6 +13,7 @@
 # Not installed: OPERA-MS — not a conda package; build it from source only if the trainer asks.
 #
 # Idempotent: skips the environment if it already exists, and the Bakta database if present.
+# Skipping never upgrades: an env or Bakta database left by an older run is flagged for rebuild.
 # Kept separate from protein_modeling: the assemblers' dependencies would downgrade its packages.
 # bioconda packages require Linux or macOS.
 
@@ -26,12 +27,15 @@ CHANNEL_BIO="bioconda"
 # QC → cleaning → assembly → evaluation → graph. metaQUAST ships inside the quast package.
 CORE_PACKAGES="fastqc nanostat fastp fastplong spades flye quast bandage"
 # Annotation and AMR/virulence screening. Dropped (with a warning) if they cannot be solved.
-ANNOT_PACKAGES="bakta ncbi-amrfinderplus abricate"
+# The floors keep the solver off Bakta 1.9, which caps AMRFinderPlus at 3.12: its database froze at
+# 2024-07-22.1, and "amrfinder -u" only warns that newer databases need AMRFinderPlus 4.2.
+AMR_MIN="4.2"
+ANNOT_PACKAGES="bakta>=1.12 ncbi-amrfinderplus>=$AMR_MIN abricate"
 DB_DIR="$HOME/workshop/databases"
 # ────────────────────────────────────────────────────────────────────
 
 DRY_RUN=false
-WITH_DB=false
+WITH_DB=true
 
 for arg in "$@"; do
     case "$arg" in
@@ -39,7 +43,7 @@ for arg in "$@"; do
         --with-db)   WITH_DB=true ;;
         --db-dir=*)  DB_DIR="${arg#--db-dir=}" ;;
         -h|--help)
-            sed -n '2,18p' "$0"
+            sed -n '2,19p' "$0"
             exit 0 ;;
         *)
             echo "Unknown option: $arg"; exit 1 ;;
@@ -63,6 +67,14 @@ env_exists() {
 # Bandage is a Qt GUI program; the offscreen platform lets it answer --version on headless WSL.
 ENV_PREFIX=""
 in_env() { PATH="$ENV_PREFIX/bin:$PATH" CONDA_PREFIX="$ENV_PREFIX" QT_QPA_PLATFORM=offscreen "$@"; }
+
+# True if the Bakta database in $1 has the schema the installed Bakta reads (bakta_db list shows it)
+bakta_db_current() {
+    in_env python - "$1/version.json" 2>/dev/null <<'EOF'
+import bakta, json, sys
+sys.exit(json.load(open(sys.argv[1]))["major"] != bakta.__db_schema_version__)
+EOF
+}
 
 FAILED=0
 
@@ -155,6 +167,15 @@ if ! $DRY_RUN; then
                 FAILED=$((FAILED + 1))
             fi
         done
+        # An env that existed before the floors above keeps whatever AMRFinderPlus it was built with
+        if amr_ver="$(in_env amrfinder --version 2>/dev/null)"; then
+            IFS=. read -r have_major have_minor _ <<< "$amr_ver"
+            IFS=. read -r need_major need_minor <<< "$AMR_MIN"
+            if (( have_major < need_major || (have_major == need_major && have_minor < need_minor) )); then
+                fail "AMRFinderPlus $amr_ver is older than $AMR_MIN — its database cannot update past 2024-07-22.1"
+                FAILED=$((FAILED + 1))
+            fi
+        fi
         if [[ $FAILED -eq 0 ]]; then
             info "$ENV_NAME verified"
         else
@@ -176,9 +197,14 @@ if $WITH_DB; then
         warn "annotation tools not installed — skipping databases"
     else
         mkdir -p "$DB_DIR"
-        # light, not full: the full Bakta database runs to tens of gigabytes
-        if [[ -d "$DB_DIR/db-light" ]]; then
+        # light, not full: the full Bakta database runs to tens of gigabytes.
+        # bakta_db download unpacks over an existing folder, so a stale one is left for the user to delete.
+        if bakta_db_current "$DB_DIR/db-light"; then
             warn "Bakta database already at $DB_DIR/db-light — skipping download"
+        elif [[ -d "$DB_DIR/db-light" ]]; then
+            fail "Bakta database at $DB_DIR/db-light is incomplete or the wrong schema for this Bakta"
+            fail "Delete it (rm -rf $DB_DIR/db-light), then rerun with --with-db"
+            FAILED=$((FAILED + 1))
         elif in_env bakta_db download --output "$DB_DIR" --type light; then
             info "Bakta database: $DB_DIR/db-light"
         else
