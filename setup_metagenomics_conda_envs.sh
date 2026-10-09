@@ -511,7 +511,7 @@ echo "Record versions: conda list -n $CORE_ENV > ${CORE_ENV}_versions.txt"
 echo "                 conda list -n $ANNOT_ENV > ${ANNOT_ENV}_versions.txt"
 echo "                 conda list -n $ABRICATE_ENV > ${ABRICATE_ENV}_versions.txt"
 echo "OPERA-MS:        not installed — build from source only if the trainer asks"
-echo "Workshop data:   cd $(cd "$(dirname "$0")" && pwd)/Datasets"
+echo "Workshop data:   cd $(cd "$(dirname "$0")" && pwd)/WORKING_FOLDER/INPUT_DATASETS"
 echo "Log:             $SETUP_LOG"
 
 exit $(( FAILED > 0 ))

@@ -121,4 +121,4 @@ echo "━━━ Summary ━━━"
 conda info --envs 2>/dev/null | grep -E "$ENV_NAME" || true
 echo ""
 echo "Activate with:  conda activate $ENV_NAME"
-echo "Workshop data:  cd $(cd "$(dirname "$0")" && pwd)/Datasets"
+echo "Workshop data:  cd $(cd "$(dirname "$0")" && pwd)/WORKING_FOLDER/INPUT_DATASETS"
