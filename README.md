@@ -26,7 +26,7 @@ cd ctrl-alt-defeat-pathogens
 
 # 1. Metagenomics tools — start here: biggest download, and the first session
 bash setup_metagenomics_conda_envs.sh --with-db
-conda activate metagenomics_env
+conda activate meta_env
 fastqc --version && flye --version && bakta --version
 
 # 2. Protein tools
@@ -47,7 +47,7 @@ If every command prints a version instead of an error, you are ready.
 
 ## The two toolboxes
 
-| | `metagenomics_env` | `protein_modeling` |
+| | `meta_env` | `protein_modeling` |
 | --- | --- | --- |
 | Tools | FastQC, NanoStat, fastp, fastplong, metaSPAdes, MetaFlye, metaQUAST, Bandage, Bakta, AMRFinderPlus, ABRicate | Biopython, pandas, PyMOL, seqkit, bwa, samtools, bcftools, BLAST, AutoDock Vina |
 | For | QC → cleaning → assembly → evaluation → graph → annotation → AMR screening | Sequences, alignment, variants, structures, docking |
@@ -86,6 +86,10 @@ the output of `conda info --envs`.
 ```
 Bioinformatics_Workshop_Setup_Instructions.pdf   read first
 Bioinformatics_Command_Cheatsheet.pdf            keep open
-setup_metagenomics_conda_envs.sh                 builds metagenomics_env
+setup_metagenomics_conda_envs.sh                 builds meta_env
 setup_protein_modeling_conda_envs.sh             builds protein_modeling
 ```
+
+Datasets and finished outputs are not in this repo — they live in a shared folder [1].
+
+[1]: https://drive.google.com/drive/folders/123zpKrLFz95MhzVqwrq0x5czZ7iv9Jd2?usp=drive_link
