@@ -34,8 +34,8 @@ MINID=80            # ABRicate: minimum identity, as a percentage
 MINCOV=60           # ABRicate: minimum coverage, as a percentage
 THREADS=12
 
-ASSEMBLIES="RESULTS/metagenomics/Assemblies"
-OUT="RESULTS/metagenomics/10_AMR_Virulence_Screening"
+ASSEMBLIES="WORKING_FOLDER/RESULTS/metagenomics/Assemblies"
+OUT="WORKING_FOLDER/RESULTS/metagenomics/10_AMR_Virulence_Screening"
 # ============================================================
 
 mkdir -p "$OUT"

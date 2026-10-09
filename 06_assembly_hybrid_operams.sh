@@ -28,10 +28,10 @@ set -euo pipefail   # stop on an error, on an unset variable, and on a failed pi
 OPERA_MS_DIR=""     # the folder containing OPERA-MS.pl
 THREADS=12
 
-CLEANED="RESULTS/metagenomics/03_Read_Cleaning"
-SHORT_ASSEMBLY="RESULTS/metagenomics/04_Assembly_Short"
-OUT="RESULTS/metagenomics/06_Assembly_Hybrid"
-ASSEMBLIES="RESULTS/metagenomics/Assemblies"
+CLEANED="WORKING_FOLDER/RESULTS/metagenomics/03_Read_Cleaning"
+SHORT_ASSEMBLY="WORKING_FOLDER/RESULTS/metagenomics/04_Assembly_Short"
+OUT="WORKING_FOLDER/RESULTS/metagenomics/06_Assembly_Hybrid"
+ASSEMBLIES="WORKING_FOLDER/RESULTS/metagenomics/Assemblies"
 # ============================================================
 
 # OPERA-MS is not installed by default, so this program is skipped until you

@@ -24,9 +24,9 @@ set -euo pipefail   # stop on an error, on an unset variable, and on a failed pi
 MIN_CONTIG=500         # ignore contigs shorter than this, in bases
 THREADS=12
 
-DATA="Datasets/Metagenome_Assembly_and_Annotation"
-ASSEMBLIES="RESULTS/metagenomics/Assemblies"
-OUT="RESULTS/metagenomics/07_Assembly_Evaluation"
+DATA="WORKING_FOLDER/INPUT_DATASETS/Metagenome_Assembly_and_Annotation"
+ASSEMBLIES="WORKING_FOLDER/RESULTS/metagenomics/Assemblies"
+OUT="WORKING_FOLDER/RESULTS/metagenomics/07_Assembly_Evaluation"
 REFERENCES="$DATA/ref_genomes"      # set to "" to run without references
 # ============================================================
 

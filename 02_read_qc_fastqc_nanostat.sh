@@ -18,14 +18,14 @@
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe
 
 # ========================= SETTINGS =========================
-WHICH="raw"       # raw     = the untouched files in Datasets/
+WHICH="raw"       # raw     = the untouched files in WORKING_FOLDER/INPUT_DATASETS/
                   # cleaned = the output of 03_read_cleaning_fastp_fastplong.sh
 
 THREADS=12
 
-DATA="Datasets/Metagenome_Assembly_and_Annotation"
-OUT="RESULTS/metagenomics/02_Read_QC"
-CLEANED="RESULTS/metagenomics/03_Read_Cleaning"
+DATA="WORKING_FOLDER/INPUT_DATASETS/Metagenome_Assembly_and_Annotation"
+OUT="WORKING_FOLDER/RESULTS/metagenomics/02_Read_QC"
+CLEANED="WORKING_FOLDER/RESULTS/metagenomics/03_Read_Cleaning"
 # ============================================================
 
 if [[ "$WHICH" == "cleaned" ]]; then

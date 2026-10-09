@@ -24,9 +24,9 @@ READ_TYPE="--nano-raw"   # --nano-raw | --nano-hq | --pacbio-raw
 ITERATIONS=1             # polishing rounds; more is slower, not always better
 THREADS=12
 
-CLEANED="RESULTS/metagenomics/03_Read_Cleaning"
-OUT="RESULTS/metagenomics/05_Assembly_Long"
-ASSEMBLIES="RESULTS/metagenomics/Assemblies"
+CLEANED="WORKING_FOLDER/RESULTS/metagenomics/03_Read_Cleaning"
+OUT="WORKING_FOLDER/RESULTS/metagenomics/05_Assembly_Long"
+ASSEMBLIES="WORKING_FOLDER/RESULTS/metagenomics/Assemblies"
 # ============================================================
 
 mkdir -p "$OUT" "$ASSEMBLIES"

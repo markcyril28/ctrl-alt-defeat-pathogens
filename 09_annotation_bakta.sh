@@ -30,8 +30,8 @@ DB_DIR="$HOME/workshop/databases/db-light"   # where setup_metagenomics_conda_en
 MIN_CONTIG_LENGTH=500     # below this, a gene call means very little
 THREADS=12
 
-ASSEMBLIES="RESULTS/metagenomics/Assemblies"
-OUT="RESULTS/metagenomics/09_Annotation"
+ASSEMBLIES="WORKING_FOLDER/RESULTS/metagenomics/Assemblies"
+OUT="WORKING_FOLDER/RESULTS/metagenomics/09_Annotation"
 # ============================================================
 
 if [[ ! -f "$DB_DIR/version.json" ]]; then

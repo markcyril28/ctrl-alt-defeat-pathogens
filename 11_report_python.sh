@@ -19,8 +19,8 @@
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe
 
 # ========================= SETTINGS =========================
-RESULTS="RESULTS/metagenomics"
-OUT="RESULTS/metagenomics/11_Report"
+RESULTS="WORKING_FOLDER/RESULTS/metagenomics"
+OUT="WORKING_FOLDER/RESULTS/metagenomics/11_Report"
 HELPER="modules/metagenomics/collect_stats.py"
 # ============================================================
 

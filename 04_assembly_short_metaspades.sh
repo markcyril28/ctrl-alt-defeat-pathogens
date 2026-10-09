@@ -12,7 +12,7 @@
 # If this environment has spades.py but no metaspades.py, use
 # "spades.py --meta" below instead. It is the same assembler.
 #
-# The main output is copied to RESULTS/metagenomics/Assemblies/, which is
+# The main output is copied to WORKING_FOLDER/RESULTS/metagenomics/Assemblies/, which is
 # where programs 07 to 10 look for assemblies.
 #
 # Needs:  conda activate meta_env
@@ -25,9 +25,9 @@ set -euo pipefail   # stop on an error, on an unset variable, and on a failed pi
 THREADS=12
 MEMORY_GB=20        # SPAdes stops itself rather than exhausting the machine
 
-CLEANED="RESULTS/metagenomics/03_Read_Cleaning"
-OUT="RESULTS/metagenomics/04_Assembly_Short"
-ASSEMBLIES="RESULTS/metagenomics/Assemblies"
+CLEANED="WORKING_FOLDER/RESULTS/metagenomics/03_Read_Cleaning"
+OUT="WORKING_FOLDER/RESULTS/metagenomics/04_Assembly_Short"
+ASSEMBLIES="WORKING_FOLDER/RESULTS/metagenomics/Assemblies"
 # ============================================================
 
 mkdir -p "$OUT" "$ASSEMBLIES"

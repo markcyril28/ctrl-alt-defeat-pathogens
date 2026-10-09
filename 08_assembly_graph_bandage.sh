@@ -9,7 +9,7 @@
 # This renders each graph to a PNG so you have a record of it. The PNG is not
 # the exercise. Open the graph in Bandage yourself and look at it:
 #
-#   Bandage load RESULTS/metagenomics/Assemblies/metaspades.gfa
+#   Bandage load WORKING_FOLDER/RESULTS/metagenomics/Assemblies/metaspades.gfa
 #
 # OPERA-MS writes no graph file, so only the two single-technology assemblies
 # appear here.
@@ -23,8 +23,8 @@ set -euo pipefail   # stop on an error, on an unset variable, and on a failed pi
 # ========================= SETTINGS =========================
 HEIGHT=1200        # height of each PNG, in pixels
 
-ASSEMBLIES="RESULTS/metagenomics/Assemblies"
-OUT="RESULTS/metagenomics/08_Assembly_Graph"
+ASSEMBLIES="WORKING_FOLDER/RESULTS/metagenomics/Assemblies"
+OUT="WORKING_FOLDER/RESULTS/metagenomics/08_Assembly_Graph"
 # ============================================================
 
 mkdir -p "$OUT"
