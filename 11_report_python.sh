@@ -13,7 +13,7 @@
 # Nothing here recalculates anything, so it is always safe to run again.
 #
 # Needs:  conda activate meta_env
-# Run from the workshop folder:  bash 11_report.sh
+# Run from the workshop folder:  bash 11_report_python.sh
 # ============================================================================
 
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe

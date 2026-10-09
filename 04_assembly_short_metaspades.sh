@@ -16,7 +16,7 @@
 # where programs 07 to 10 look for assemblies.
 #
 # Needs:  conda activate meta_env
-# Run from the workshop folder:  bash 04_assembly_short.sh
+# Run from the workshop folder:  bash 04_assembly_short_metaspades.sh
 # ============================================================================
 
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe

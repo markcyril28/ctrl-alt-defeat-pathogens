@@ -19,7 +19,7 @@
 # use the workshop server rather than spending the session on it, and record
 # in the worksheet that you skipped this step.
 #
-# Run from the workshop folder:  bash 06_assembly_hybrid.sh
+# Run from the workshop folder:  bash 06_assembly_hybrid_operams.sh
 # ============================================================================
 
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe

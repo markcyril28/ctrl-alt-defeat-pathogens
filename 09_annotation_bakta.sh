@@ -20,7 +20,7 @@
 # worksheet.
 #
 # Needs:  conda activate meta_env
-# Run from the workshop folder:  bash 09_annotation.sh
+# Run from the workshop folder:  bash 09_annotation_bakta.sh
 # ============================================================================
 
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe

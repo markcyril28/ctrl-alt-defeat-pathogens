@@ -15,7 +15,7 @@
 # appear here.
 #
 # Needs:  conda activate meta_env
-# Run from the workshop folder:  bash 08_assembly_graph.sh
+# Run from the workshop folder:  bash 08_assembly_graph_bandage.sh
 # ============================================================================
 
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe

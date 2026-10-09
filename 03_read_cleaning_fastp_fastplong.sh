@@ -14,7 +14,7 @@
 # they are the one thing in this workshop you cannot regenerate.
 #
 # Needs:  conda activate meta_env
-# Run from the workshop folder:  bash 03_read_cleaning.sh
+# Run from the workshop folder:  bash 03_read_cleaning_fastp_fastplong.sh
 # ============================================================================
 
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe

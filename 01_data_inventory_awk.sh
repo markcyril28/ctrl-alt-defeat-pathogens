@@ -8,7 +8,7 @@
 # No bioinformatics tool is needed. A FASTQ record is always four lines, so
 # line 2 of every 4 holds the bases, and awk can count them.
 #
-# Run from the workshop folder:  bash 01_data_inventory.sh
+# Run from the workshop folder:  bash 01_data_inventory_awk.sh
 # ============================================================================
 
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe

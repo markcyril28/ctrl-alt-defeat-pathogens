@@ -15,7 +15,7 @@
 # Read total length, genome fraction and misassemblies together.
 #
 # Needs:  conda activate meta_env
-# Run from the workshop folder:  bash 07_assembly_evaluation.sh
+# Run from the workshop folder:  bash 07_assembly_evaluation_metaquast.sh
 # ============================================================================
 
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe

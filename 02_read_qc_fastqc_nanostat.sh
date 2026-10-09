@@ -7,19 +7,19 @@
 # are read length N50 and median read quality.
 #
 # Run this twice: once now on the raw reads, and again after
-# 03_read_cleaning.sh with WHICH="cleaned". Cleaning changes your data; it
+# 03_read_cleaning_fastp_fastplong.sh with WHICH="cleaned". Cleaning changes your data; it
 # does not improve it by definition. Measuring both is the only way to know
 # what it did. Worksheet sections 3 and 5.
 #
 # Needs:  conda activate meta_env
-# Run from the workshop folder:  bash 02_read_qc.sh
+# Run from the workshop folder:  bash 02_read_qc_fastqc_nanostat.sh
 # ============================================================================
 
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe
 
 # ========================= SETTINGS =========================
 WHICH="raw"       # raw     = the untouched files in Datasets/
-                  # cleaned = the output of 03_read_cleaning.sh
+                  # cleaned = the output of 03_read_cleaning_fastp_fastplong.sh
 
 THREADS=12
 

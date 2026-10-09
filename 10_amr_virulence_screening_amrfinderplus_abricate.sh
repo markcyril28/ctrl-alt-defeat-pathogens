@@ -18,7 +18,7 @@
 # applies species-specific rules, and a metagenome is not one species.
 #
 # Needs:  conda activate meta_env
-# Run from the workshop folder:  bash 10_amr_virulence_screening.sh
+# Run from the workshop folder:  bash 10_amr_virulence_screening_amrfinderplus_abricate.sh
 # ============================================================================
 
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe

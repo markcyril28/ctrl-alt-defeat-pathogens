@@ -14,7 +14,7 @@
 # and --pacbio-raw for PacBio. Telling Flye the wrong thing wastes the run.
 #
 # Needs:  conda activate meta_env
-# Run from the workshop folder:  bash 05_assembly_long.sh
+# Run from the workshop folder:  bash 05_assembly_long_metaflye.sh
 # ============================================================================
 
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe
