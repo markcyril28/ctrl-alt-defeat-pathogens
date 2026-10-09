@@ -89,11 +89,3 @@ Bioinformatics_Command_Cheatsheet.pdf            keep open
 setup_metagenomics_conda_envs.sh                 builds metagenomics_env
 setup_protein_modeling_conda_envs.sh             builds protein_modeling
 ```
-
-Your instructors supply the teaching material separately: `Datasets/` (a mock metagenome
-plus four bacterial species), `modules/` (helper scripts), `RESULTS/` (where output goes)
-and `docs/`.
-
-In `Datasets/`, `PDB_` files are **experimental** structures and `MODEL_` files are
-**predicted** ones. Don't mix them — in a predicted model, the B-factor column is
-confidence (pLDDT), not a crystallographic B-factor.
