@@ -6,10 +6,10 @@
 #           bash setup_protein_modeling_conda_envs.sh --no-mamba    # install with conda only
 #
 # Environment created (name set at the top of the script):
-#   protein_modeling — python 3.11, the lettered pipeline's tools (BLAST, PyMOL, Meeko, RDKit, Vina) and
+#   protein_modeling — python 3.11, the lettered pipeline's tools (BLAST, PyMOL, Meeko, RDKit, Vina, PDBFixer) and
 #                      the manuals' session tools (Biopython, pandas, FastQC, SeqKit, BWA, samtools, bcftools)
 #
-# Idempotent: skips the environment if it already exists.
+# Idempotent: an environment that already exists is kept, and any package missing from it is added.
 # Channel priority: conda-forge first, bioconda second (required by bioconda).
 # bioconda packages (samtools, bwa, etc.) require Linux or macOS.
 # Every run is also written to logs/setup_protein_modeling_conda_envs_<date>_<time>.log next to this script.
@@ -17,13 +17,15 @@
 # This is the environment the lettered pipeline runs in. Programs A to J take the genes the metagenomics
 # pipeline found all the way to a docking score, and between them they need:
 #
-#   A gene catalog  BLAST    D SWISS-MODEL   python      G receptor prep  PyMOL + Meeko
+#   A gene catalog  BLAST    D SWISS-MODEL   python      G receptor prep  PyMOL + Meeko + PDBFixer
 #   B extraction    python   E AlphaFold3    python      H ligand prep    RDKit + Meeko
 #   C protein prep  python   F model QC      PyMOL       I docking        Vina
 #                                                        J report         python
 #
 # F and G run PyMOL inside their helpers, as a Python library (from pymol import cmd), not as the viewer.
 # G and H call Meeko's mk_prepare_receptor.py and mk_prepare_ligand.py, and I calls the vina program.
+# G also rebuilds the side-chain atoms a crystal left out, with PDBFixer. Without it Meeko deletes those
+# residues without saying so, even when one of them lines the pocket.
 #
 # Each lettered program is a short shell script: the settings you change, a loop, and a call to the tool
 # or to a helper in modules/. The helpers are where the table and sequence handling lives, and each one
@@ -46,8 +48,8 @@ USE_MAMBA=true
 PYTHON_VERSION="3.11"
 CHANNEL_MAIN="conda-forge"
 CHANNEL_BIO="bioconda"
-# Programs A to J: BLAST (A), PyMOL (F, G), Meeko (G, H), RDKit (H), Vina (I)
-PIPELINE_PACKAGES="blast pymol-open-source meeko rdkit vina"
+# Programs A to J: BLAST (A), PyMOL (F, G), Meeko (G, H), PDBFixer (G), RDKit (H), Vina (I)
+PIPELINE_PACKAGES="blast pymol-open-source meeko pdbfixer rdkit vina"
 # The command-line sessions in the workshop manuals; programs A to J run without these
 SESSION_PACKAGES="biopython pandas fastqc seqkit bwa samtools bcftools"
 # ────────────────────────────────────────────────────────────────────
@@ -140,6 +142,13 @@ print(f'pymol {cmd.get_version()[0]}, .cif to .pdb ok')
 PYTHON
 }
 
+# Program G rebuilds missing side-chain atoms with PDBFixer, which imports OpenMM. PDBFixer has no
+# __version__ of its own, so the check reports OpenMM's. An env without either would not fail G: G would
+# print a note that PDBFixer is not installed and carry on, leaving Meeko to delete the incomplete residues.
+pdbfixer_api() {
+    python -c 'import openmm, pdbfixer; from openmm.app import PDBFile; print("pdbfixer, openmm", openmm.__version__)'
+}
+
 # Program H turns a SMILES into a 3-D conformer. An RDKit that imports but cannot embed one fails here,
 # in setup, instead of in the middle of a session.
 rdkit_embed() {
@@ -157,7 +166,11 @@ PYTHON
 # --override-channels keeps a "defaults" entry in ~/.condarc out of the solve (conda and mamba both read it).
 CHANNELS=(--override-channels -c "$CHANNEL_MAIN" -c "$CHANNEL_BIO")
 
-# Create env $1 from the package specs that follow, unless it already exists. Returns 1 if it cannot be built.
+# Create env $1 from the package specs that follow. Returns 1 if it cannot be built.
+# An env that already exists is kept and topped up instead: the specs go to "install", which adds a package
+# the env lacks (one added to the lists since it was built) and leaves the rest as it is. python= is left out
+# so the env's Python is not touched. If the top-up fails the env is not removed — the verify step below
+# then names the tool that is missing.
 # mamba goes first when $INSTALLER is mamba. Both solve with libmamba, but mamba 2.8's sharded index once
 # reported conda-forge packages as missing, so a mamba failure is retried with conda rather than reported.
 make_env() {
@@ -166,7 +179,29 @@ make_env() {
     echo ""
     echo "━━━ $name ━━━"
     if env_exists "$name"; then
-        warn "$name already exists — skipping creation"
+        local spec
+        local -a add=()
+        for spec in "$@"; do
+            [[ $spec == python=* ]] || add+=("$spec")
+        done
+        warn "$name already exists — adding any package it lacks"
+        if $DRY_RUN; then
+            echo "  [dry-run] $INSTALLER install -y -n $name --strict-channel-priority ${CHANNELS[*]} ${add[*]}"
+            return 0
+        fi
+        if [[ $INSTALLER == mamba ]]; then
+            if MAMBA_ROOT_PREFIX="$CONDA_BASE" mamba install -y -n "$name" --strict-channel-priority \
+                    "${CHANNELS[@]}" "${add[@]}"; then
+                info "$name is up to date"
+                return 0
+            fi
+            warn "mamba could not update $name — retrying with conda"
+        fi
+        if conda install -y -n "$name" --strict-channel-priority "${CHANNELS[@]}" "${add[@]}"; then
+            info "$name is up to date"
+        else
+            fail "Could not add the missing packages to $name — conda's reason is above, and in the log"
+        fi
         return 0
     fi
     if $DRY_RUN; then
@@ -244,6 +279,7 @@ TOOLS=(
     "PyMOL library|pymol_api"               # F, G
     "Meeko|py_module meeko"                 # G, H
     "Meeko CLI|meeko_cli"                   # G, H
+    "PDBFixer|pdbfixer_api"                 # G
     "RDKit|py_module rdkit"                 # H
     "RDKit 3-D|rdkit_embed"                 # H
     "Vina|vina --version"                   # I
@@ -307,10 +343,10 @@ echo "The lettered pipeline, once the metagenomics pipeline has been run:"
 echo "  bash run_protein_modeling.sh      # or one program at a time, A to J"
 echo ""
 echo "It runs in two sittings. Programs A to E end with files to upload to SWISS-MODEL and AlphaFold3;"
-echo "download the models into the models/ folder beside each set of uploads, keeping whatever name the"
-echo "service gave them —"
-echo "  RESULTS/protein_modeling/D_SWISS_MODEL_Inputs/models/"
-echo "  RESULTS/protein_modeling/E_AlphaFold3_Inputs/alphafoldserver/models/"
+echo "download the models into the models/ folder beside each set of uploads — into the folder for that"
+echo "organism, keeping whatever name the service gave them —"
+echo "  RESULTS/protein_modeling/for_metagenomics_dataset/D_SWISS_MODEL_Inputs/models/<organism>/"
+echo "  RESULTS/protein_modeling/for_metagenomics_dataset/E_AlphaFold3_Inputs/alphafoldserver/models/<organism>/"
 echo "then run it again: F to J skip themselves until those files are there."
 
 exit $(( FAILED > 0 ))
