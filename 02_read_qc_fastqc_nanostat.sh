@@ -23,7 +23,7 @@ WHICH="raw"       # raw     = the untouched files in Datasets/
 
 THREADS=12
 
-DATA="Datasets/Metagenome Assembly and Annotation"
+DATA="Datasets/Metagenome_Assembly_and_Annotation"
 OUT="RESULTS/metagenomics/02_Read_QC"
 CLEANED="RESULTS/metagenomics/03_Read_Cleaning"
 # ============================================================

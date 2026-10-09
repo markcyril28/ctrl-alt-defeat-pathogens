@@ -34,7 +34,7 @@ LENGTH_REQUIRED=50               # drop reads shorter than this after trimming
 # made the read useful in the first place.
 LONG_LENGTH_REQUIRED=1000
 
-DATA="Datasets/Metagenome Assembly and Annotation"
+DATA="Datasets/Metagenome_Assembly_and_Annotation"
 OUT="RESULTS/metagenomics/03_Read_Cleaning"
 
 SHORT_R1="$DATA/raw_data/short_reads_R1.fastq"

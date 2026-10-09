@@ -14,7 +14,7 @@
 set -euo pipefail   # stop on an error, on an unset variable, and on a failed pipe
 
 # ========================= SETTINGS =========================
-DATA="Datasets/Metagenome Assembly and Annotation"
+DATA="Datasets/Metagenome_Assembly_and_Annotation"
 OUT="RESULTS/metagenomics/01_Data_Inventory"
 
 SHORT_R1="$DATA/raw_data/short_reads_R1.fastq"
