@@ -5,9 +5,12 @@
 #           bash setup_protein_modeling_conda_envs.sh --dry-run     # show what would be created
 #
 # Environment created:
-#   protein_model — python 3.11, biopython, pandas, pymol, NGS tools, docking (Vina)
+#   protein_modeling — python 3.11, biopython, pandas, pymol, NGS tools,
+#                      docking (Vina, Meeko, RDKit, PDBFixer)
 #
-# Idempotent: skips the environment if it already exists.
+# Idempotent: an environment that already exists is not recreated; it is topped
+# up with any package from PACKAGES it lacks, so a package added to the list
+# below reaches an existing environment on the next run.
 # Channel priority: conda-forge first, bioconda second (required by bioconda).
 # bioconda packages (samtools, bwa, etc.) require Linux or macOS.
 
@@ -18,7 +21,10 @@ ENV_NAME="protein_modeling"
 PYTHON_VERSION="3.11"
 CHANNEL_MAIN="conda-forge"
 CHANNEL_BIO="bioconda"
-PACKAGES="biopython pandas pymol-open-source fastqc seqkit bwa samtools bcftools blast vina meeko rdkit"
+# pdbfixer rebuilds the side chains an experimental structure left out, so that
+# Meeko does not delete them (modules/docking/database_receptor.py). It brings
+# openmm with it. Add every package a pipeline script needs to this list.
+PACKAGES="biopython pandas pymol-open-source fastqc seqkit bwa samtools bcftools blast vina meeko rdkit pdbfixer"
 # ────────────────────────────────────────────────────────────────────
 
 DRY_RUN=false
@@ -27,7 +33,7 @@ for arg in "$@"; do
     case "$arg" in
         --dry-run)   DRY_RUN=true ;;
         -h|--help)
-            sed -n '2,12p' "$0"
+            sed -n '2,15p' "$0"
             exit 0 ;;
         *)
             echo "Unknown option: $arg"; exit 1 ;;
@@ -69,7 +75,16 @@ echo ""
 echo "━━━ $ENV_NAME ━━━"
 
 if env_exists "$ENV_NAME"; then
-    warn "$ENV_NAME already exists — skipping creation"
+    warn "$ENV_NAME already exists — not recreating; adding any missing packages"
+    if $DRY_RUN; then
+        echo "  [dry-run] conda install -n $ENV_NAME -c $CHANNEL_MAIN -c $CHANNEL_BIO $PACKAGES"
+    else
+        # No python= here: the environment keeps the Python it was built with.
+        conda install -y -n "$ENV_NAME" \
+            -c "$CHANNEL_MAIN" -c "$CHANNEL_BIO" \
+            $PACKAGES
+        info "$ENV_NAME up to date"
+    fi
 else
     if $DRY_RUN; then
         echo "  [dry-run] conda create -n $ENV_NAME -c $CHANNEL_MAIN -c $CHANNEL_BIO python=$PYTHON_VERSION $PACKAGES"
@@ -90,7 +105,7 @@ if ! $DRY_RUN; then
     if [[ -z "$ENV_PREFIX" ]]; then
         fail "Could not locate $ENV_NAME prefix"
     elif "$ENV_PREFIX/bin/python" -c \
-            "import Bio, pandas, pymol, meeko; print('biopython', Bio.__version__, 'pandas', pandas.__version__, 'pymol', pymol.cmd.get_version()[0])" \
+            "import Bio, pandas, pymol, meeko, rdkit, pdbfixer, openmm; print('biopython', Bio.__version__, 'pandas', pandas.__version__, 'pymol', pymol.cmd.get_version()[0], 'openmm', openmm.__version__, '(pdbfixer imports)')" \
          && "$ENV_PREFIX/bin/samtools" --version | head -1 \
          && "$ENV_PREFIX/bin/vina" --version \
          && "$ENV_PREFIX/bin/seqkit" version; then
