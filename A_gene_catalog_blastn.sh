@@ -96,6 +96,43 @@ blastn \
 
 python3 "$CATALOG" tables "$OUT" "$MIN_IDENTITY" "$MIN_LENGTH"
 
+# The same search again, over the matched loci only, asking for blastn's
+# pairwise output: the one that prints the two sequences with a line of bars
+# between them marking the bases that agree. The tables say a hit is 85%
+# identical over 115 bases; this is where you see whether those bases are one
+# clean stretch or a mismatch every few bases, which is the difference between
+# a real shared domain and a coincidence.
+#
+# One file per bacterial species, because one blastn run writes one file, so
+# the split has to happen on the query side. gene_catalog.py wrote one query
+# file per species; each is still searched against the whole reference
+# database, so the e-values here are the ones the tables report.
+#
+# Extra searches rather than a second -outfmt on the first one, because a
+# blastn run writes a single format. They cost almost nothing: the matched
+# loci are a handful, and the database is the few reference genes.
+python3 "$CATALOG" matched "$OUT"
+
+rm -f "$OUT"/alignments_*.txt          # a species may not match this time
+
+for QUERY in "$OUT"/blast/matched_*.fna; do
+    [[ -e "$QUERY" ]] || continue      # no matches at all, so no query files
+
+    SPECIES=$(basename "$QUERY" .fna)  # matched_1_Mycobacterium_tuberculosis
+    SPECIES=${SPECIES#matched_}        # 1_Mycobacterium_tuberculosis
+
+    blastn \
+        -task blastn \
+        -query "$QUERY" \
+        -db "$OUT/blast/reference_genes" \
+        -evalue "$EVALUE" \
+        -max_hsps 1 \
+        -num_threads "$THREADS" \
+        -outfmt 0 \
+        > "$OUT/alignments_$SPECIES.txt"
+
+    echo "alignments       $OUT/alignments_$SPECIES.txt"
+done
 
 for TABLE in search_summary reference_coverage; do
     echo
@@ -106,5 +143,6 @@ done
 echo
 echo "every hit        $OUT/hits.tsv"
 echo "the matches      $OUT/matches.tsv"
+echo "the alignments   $OUT/alignments_<species>.txt   (each match drawn out, base by base)"
 echo "reference genes  $OUT/reference_genes.tsv"
 echo "all proteins     $OUT/proteins.faa   (to grep a locus tag by hand)"
