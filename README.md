@@ -92,4 +92,4 @@ setup_protein_modeling_conda_envs.sh             builds protein_modeling
 
 Datasets and finished outputs are not in this repo — they live in a shared folder [1].
 
-[1]: https://drive.google.com/drive/folders/123zpKrLFz95MhzVqwrq0x5czZ7iv9Jd2?usp=drive_link
+[1]: https://drive.google.com/drive/folders/1JYIT-Sjh83LzSM4624ZdvbNia5nIxTW5?usp=sharing
