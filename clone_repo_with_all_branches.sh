@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # clone_repo_with_all_branches.sh — clone a repository and end up with every one of its branches
 # Run from: Ubuntu/WSL terminal  or  Mac Terminal, in the folder where you want the copy to appear
-# Usage:    bash clone_repo_with_all_branches.sh <repository-url>              # clone into a folder named after the repo
+# Usage:    bash clone_repo_with_all_branches.sh                               # clone the default repository named below
+#           bash clone_repo_with_all_branches.sh <repository-url>              # clone some other repository instead
 #           bash clone_repo_with_all_branches.sh <repository-url> my_folder    # clone into my_folder instead
 #           bash clone_repo_with_all_branches.sh <repository-url> --no-local   # leave the branches as origin/<name> only
 #           bash clone_repo_with_all_branches.sh <repository-url> --mirror     # bare copy of every ref, for a backup
@@ -35,6 +36,9 @@
 set -euo pipefail
 
 # ── Settings ────────────────────────────────────────────────────────
+# The repository this script clones when the command line does not name one.
+DEFAULT_URL="https://github.com/markcyril28/ctrl-alt-defeat-pathogens.git"
+
 MAKE_LOCAL=1      # 1 = give every remote branch a local branch of the same name   --no-local turns this off
 MIRROR=0          # 1 = bare mirror of every ref instead of a working copy         --mirror
 FIX=0             # 1 = work on the existing clone here, do not clone anything     --fix
@@ -55,17 +59,16 @@ for arg in "$@"; do
         --no-local)   MAKE_LOCAL=0 ;;
         --mirror)     MIRROR=1 ;;
         --fix)        FIX=1 ;;
-        -h|--help)    sed -n '2,8p' "$0"; exit 0 ;;
+        -h|--help)    sed -n '2,9p' "$0"; exit 0 ;;
         -*)           fail "unknown option: $arg  (try --help)"; exit 2 ;;
         *)            if [[ -z "$URL" ]]; then URL="$arg"; else DEST="$arg"; fi ;;
     esac
 done
 
+# No url on the command line means the default repository at the top of this script.
 if (( ! FIX )) && [[ -z "$URL" ]]; then
-    fail "give the repository to clone, for example:"
-    echo "    bash $(basename "$0") https://github.com/markcyril28/Ologist_Workshop.git"
-    echo "    bash $(basename "$0") --fix        # instead, repair the clone you are standing in"
-    exit 2
+    URL="$DEFAULT_URL"
+    info "no repository given, so using the default: $URL"
 fi
 
 # ── Step 1: get a repository to work in ─────────────────────────────
