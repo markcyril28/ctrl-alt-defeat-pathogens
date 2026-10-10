@@ -336,7 +336,7 @@ if [[ $FAILED -gt 0 ]]; then
 fi
 echo "Activate with:   conda activate $ENV_NAME"
 echo "Record versions: conda list -n $ENV_NAME > ${ENV_NAME}_versions.txt"
-echo "Workshop data:   cd $(cd "$(dirname "$0")" && pwd)/Datasets"
+echo "Workshop data:   cd $(cd "$(dirname "$0")" && pwd)/WORKING_FOLDER/INPUT_DATASETS"
 echo "Log:             $SETUP_LOG"
 echo ""
 echo "The lettered pipeline, once the metagenomics pipeline has been run:"

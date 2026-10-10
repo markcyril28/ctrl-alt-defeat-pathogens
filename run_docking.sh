@@ -12,7 +12,7 @@
 # result; COMMAND=dock refuses to run until it has, unless SKIP_CONTROL_CHECK=true.
 #
 # Needs the docking toolkit: vina, meeko (mk_prepare_receptor.py, mk_prepare_ligand.py,
-# mk_export.py), pdbfixer, rdkit, pymol. See setup_conda_envs.sh / Step 7 of the manual.
+# mk_export.py), pdbfixer, rdkit, pymol. See setup_protein_modeling_conda_envs.sh / Step 7 of the manual.
 
 set -euo pipefail
 
