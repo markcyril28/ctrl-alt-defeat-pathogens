@@ -1,0 +1,54 @@
+# Protein modeling config — Mycobacterium tuberculosis (CpnT / TNT toxin)
+# Set CONFIG="run_protein_modeling_D1_Mycobacterium_tuberculosis.toml" in run_protein_modeling.sh
+# Paths are relative to the species directory.
+
+[species]
+name = "Mycobacterium tuberculosis"
+dir  = "1_Mycobacterium_tuberculosis"
+
+# Step 6 — clean receptors
+[[clean]]
+name    = "TNT"
+pdb     = "PDB_4QLP_TNT_immunity.pdb"
+keep    = "chain B and polymer"
+drop    = ""
+zn      = 0
+outfile = "TNT_receptor_clean.pdb"
+
+# Step 8a/8b — AlphaFold fetch targets
+[[fetch_target]]
+accession = "O05442"
+name      = "CpnT_full"
+note      = "full-length CpnT — 4QLP covers the TNT domain only"
+
+# Step 8c — pLDDT regions
+[[plddt]]
+model = "MODEL_O05442_CpnT_full_AF.pdb"
+label = "whole chain"
+
+[[plddt]]
+model = "MODEL_O05442_CpnT_full_AF.pdb"
+label = "TNT domain 651-846"
+first = 651
+last  = 846
+
+[[plddt]]
+model = "MODEL_O05442_CpnT_full_AF.pdb"
+label = "linker 397-634"
+first = 397
+last  = 634
+
+# Step 8d — model vs crystal superposition
+[[validate]]
+label       = "TNT domain"
+model       = "MODEL_O05442_CpnT_full_AF.pdb"
+model_sel   = "resi 651-846"
+crystal     = "PDB_4QLP_TNT_immunity.pdb"
+crystal_sel = "chain B and polymer"
+
+# Step 8f — trim low-confidence regions
+[[trim]]
+source  = "MODEL_O05442_CpnT_full_AF.pdb"
+keep    = "resi 651-846"
+label   = "CpnT TNT domain"
+outfile = "MODEL_CpnT_TNT_domain_trimmed.pdb"

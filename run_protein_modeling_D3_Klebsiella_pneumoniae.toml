@@ -1,0 +1,63 @@
+# Protein modeling config — Klebsiella pneumoniae (FimH / MrkD adhesins)
+# Set CONFIG="run_protein_modeling_D3_Klebsiella_pneumoniae.toml" in run_protein_modeling.sh
+# Paths are relative to the species directory.
+
+[species]
+name = "Klebsiella pneumoniae"
+dir  = "3_Klebsiella_pneumoniae"
+
+# Step 6 — clean receptors
+[[clean]]
+name    = "FimH lectin"
+pdb     = "PDB_9AT9_FimH_lectin_mannose.pdb"
+keep    = "polymer"
+drop    = "MAN"
+zn      = 0
+outfile = "FimH_receptor_clean.pdb"
+
+# Step 8a/8b — AlphaFold fetch targets
+[[fetch_target]]
+accession = "P21648"
+name      = "MrkD"
+note      = "K. pneumoniae type 3 fimbrial adhesin — no PDB in dataset"
+
+[[fetch_target]]
+accession = "A0A0H3H2I8"
+name      = "FimH_full"
+note      = "full-length FimH — 9AT9 covers the lectin domain only"
+
+# Step 8c — pLDDT regions
+[[plddt]]
+model = "MODEL_P21648_MrkD_AF.pdb"
+label = "whole chain"
+
+[[plddt]]
+model = "MODEL_P21648_MrkD_AF.pdb"
+label = "minus signal region 8-321"
+first = 8
+last  = 321
+
+[[plddt]]
+model = "MODEL_A0A0H3H2I8_FimH_full_AF.pdb"
+label = "whole chain"
+
+[[plddt]]
+model = "MODEL_A0A0H3H2I8_FimH_full_AF.pdb"
+label = "lectin domain 1-160"
+first = 1
+last  = 160
+
+# Step 8d — model vs crystal superposition
+[[validate]]
+label       = "FimH lectin"
+model       = "MODEL_A0A0H3H2I8_FimH_full_AF.pdb"
+model_sel   = "polymer"
+crystal     = "PDB_9AT9_FimH_lectin_mannose.pdb"
+crystal_sel = "polymer"
+
+# Step 8f — trim low-confidence regions
+[[trim]]
+source  = "MODEL_P21648_MrkD_AF.pdb"
+keep    = "not resi 1-7"
+label   = "MrkD"
+outfile = "MODEL_MrkD_trimmed.pdb"

@@ -1,0 +1,29 @@
+# Docking config — Klebsiella pneumoniae (FimH / MrkD adhesins)
+# Set CONFIG="run_docking_D3_Klebsiella_pneumoniae.toml" in run_docking.sh
+# Paths are relative to the species directory.
+
+[species]
+name = "Klebsiella pneumoniae"
+dir  = "3_Klebsiella_pneumoniae"
+
+[[dock_target]]
+key           = "fimh"
+receptor      = "PDB_9AT9_FimH_lectin_mannose.pdb"
+pre_selection = "-"
+split_resn    = "MAN"
+keep_metals   = false
+center        = "ligand"
+box           = 20
+redock_resn   = "MAN"
+note          = "Validated control — redock mannose first"
+
+[[dock_target]]
+key           = "mrkd"
+receptor      = "MODEL_MrkD_trimmed.pdb"
+pre_selection = "-"
+split_resn    = "-"
+keep_metals   = false
+center        = "user"
+box           = 22
+redock_resn   = "-"
+note          = "Model, pLDDT 89, no known ligand — find a pocket first, set CENTER_OVERRIDE"

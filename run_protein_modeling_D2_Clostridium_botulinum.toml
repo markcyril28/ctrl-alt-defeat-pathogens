@@ -1,0 +1,110 @@
+# Protein modeling config — Clostridium botulinum (BoNT serotypes)
+# Set CONFIG="run_protein_modeling_D2_Clostridium_botulinum.toml" in run_protein_modeling.sh
+# Paths are relative to the species directory.
+
+[species]
+name = "Clostridium botulinum"
+dir  = "2_Clostridium_botulinum"
+
+# Step 6 — clean receptors
+[[clean]]
+name    = "BoNT/A holotoxin"
+pdb     = "PDB_3BTA_BoNT_A_holotoxin.pdb"
+keep    = "(chain A and polymer) or resn ZN"
+drop    = ""
+zn      = 1
+outfile = "BONT_A_holo_clean.pdb"
+
+[[clean]]
+name    = "BoNT/A LC"
+pdb     = "PDB_1XTG_BoNT_A_LC_SNAP25.pdb"
+keep    = "(chain A and polymer) or resn ZN"
+drop    = "CL"
+zn      = 1
+outfile = "BONT_A_LC_clean.pdb"
+
+[[clean]]
+name    = "BoNT/B catalytic"
+pdb     = "PDB_1EPW_BoNT_B.pdb"
+keep    = "polymer or resn ZN"
+drop    = "SO4"
+zn      = 1
+outfile = "BONT_B_catalytic_clean.pdb"
+
+[[clean]]
+name    = "BoNT/B receptor-bd"
+pdb     = "PDB_1I1E_BoNT_B_doxorubicin.pdb"
+keep    = "polymer"
+drop    = "DM2+SO4"
+zn      = 0
+outfile = "BONT_B_HC_clean.pdb"
+
+# Step 8a/8b — AlphaFold fetch targets
+[[fetch_target]]
+accession = "P18640"
+name      = "BoNT_C1"
+note      = "BoNT serotype C1 — sequence only"
+
+[[fetch_target]]
+accession = "P19321"
+name      = "BoNT_D"
+note      = "BoNT serotype D — sequence only"
+
+[[fetch_target]]
+accession = "Q00496"
+name      = "BoNT_E"
+note      = "BoNT serotype E — sequence only"
+
+[[fetch_target]]
+accession = "P30996"
+name      = "BoNT_F"
+note      = "BoNT serotype F — sequence only"
+
+[[fetch_target]]
+accession = "Q60393"
+name      = "BoNT_G"
+note      = "BoNT serotype G — sequence only"
+
+# Step 8c — pLDDT regions
+[[plddt]]
+model = "MODEL_Q00496_BoNT_E_AF.pdb"
+label = "whole chain"
+
+[[plddt]]
+model = "MODEL_P30996_BoNT_F_AF.pdb"
+label = "whole chain"
+
+# Step 8e — template identity (unique to this species)
+[[identity_query]]
+name  = "BoNT/C1"
+fasta = "FASTA_P18640_BoNT_C1.fasta"
+
+[[identity_query]]
+name  = "BoNT/D"
+fasta = "FASTA_P19321_BoNT_D.fasta"
+
+[[identity_query]]
+name  = "BoNT/G"
+fasta = "FASTA_Q60393_BoNT_G.fasta"
+
+[[identity_template]]
+name  = "BoNT/B (1EPW)"
+fasta = "FASTA_P10844_BoNT_B.fasta"
+
+[[identity_template]]
+name  = "BoNT/A1 (3BTA)"
+fasta = "FASTA_P0DPI1_BoNT_A1.fasta"
+
+# Step 10 — Zn transfer (unique to this species)
+[zn_template]
+path = "PDB_1XTG_BoNT_A_LC_SNAP25.pdb"
+
+[[zn_transfer]]
+label   = "BoNT/E"
+model   = "MODEL_Q00496_BoNT_E_AF.pdb"
+outfile = "MODEL_BoNT_E_with_Zn.pdb"
+
+[[zn_transfer]]
+label   = "BoNT/F"
+model   = "MODEL_P30996_BoNT_F_AF.pdb"
+outfile = "MODEL_BoNT_F_with_Zn.pdb"
